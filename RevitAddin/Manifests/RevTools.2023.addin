@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<RevitAddIns>
+	<AddIn Type="Application">
+		<Name>RevTools</Name>
+		<Assembly>RevTools\RevitAddin.dll</Assembly>
+		<FullClassName>RevitAddin.Application</FullClassName>
+		<ClientId>EC4D823D-1EEA-4F38-A5C1-56598F95A94B</ClientId>
+		<VendorId>RyanCoulman</VendorId>
+		<VendorDescription>RyanCoulman Revit Tools</VendorDescription>
+	</AddIn>
+</RevitAddIns>

@@ -1,0 +1,290 @@
+﻿<Window x:Class="ValveGetter.UI.AdvancedSettingsForm"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Valve Service Extractor - Advanced Settings"
+        Width="950"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        MinHeight="620" MinWidth="900">
+    <Window.Resources>
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="Padding" Value="10"/>
+        </Style>
+        <Style TargetType="TextBlock">
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin" Value="0,0,10,0"/>
+        </Style>
+        <Style TargetType="TextBox">
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="Padding" Value="5,0"/>
+        </Style>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="15,5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="MinWidth" Value="80"/>
+        </Style>
+        <Style x:Key="SmallIconButton" TargetType="Button">
+            <Setter Property="Width" Value="36"/>
+            <Setter Property="Height" Value="26"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- TOP LEFT: Tolerance Settings -->
+        <GroupBox Grid.Row="0" Grid.Column="0" Header="Tolerance Settings"
+                  ToolTip="Search distances for detecting nearby MEP elements when valve is not directly connected">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="Proximity Tolerance:"/>
+                <TextBox Grid.Row="0" Grid.Column="1" x:Name="txtTolerance" Margin="5"/>
+                <TextBlock Grid.Row="0" Grid.Column="2" Text="mm"/>
+
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="Touching Distance:"/>
+                <TextBox Grid.Row="1" Grid.Column="1" x:Name="txtTouchingDistance" Margin="5"/>
+                <TextBlock Grid.Row="1" Grid.Column="2" Text="mm"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- TOP RIGHT: Debug Output Settings -->
+        <GroupBox Grid.Row="0" Grid.Column="1" Header="Debug Output Level"
+                  ToolTip="Select option for output information post run">
+            <StackPanel>
+                <RadioButton x:Name="rbDebugNone" Content="None" Margin="5"/>
+                <RadioButton x:Name="rbDebugConcise" Content="Concise - Summary only" Margin="5"/>
+                <RadioButton x:Name="rbDebugFull" Content="Full - Complete valve data" Margin="5"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- MIDDLE LEFT: Input/Output Parameters -->
+        <GroupBox Grid.Row="1" Grid.Column="0" Header="Input &amp; Output Parameters">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <CheckBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                          x:Name="chkWriteToParameters"
+                          Content="Write service values to valve parameters"
+                          Margin="5,5,5,15"/>
+
+                <Label Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="3"
+                       Content="MEP - Input Service Parameter:"
+                       Padding="0,0" FontWeight="SemiBold"/>
+
+                <TextBlock Grid.Row="2" Grid.Column="0" Text="Parameter:"/>
+                <TextBox Grid.Row="2" Grid.Column="1" x:Name="txtInputParameter"
+                         Margin="5" IsReadOnly="True"/>
+                <Button Grid.Row="2" Grid.Column="2" Content="Select..."
+                        Click="BtnSelectInputParameter_Click" Padding="10,5"/>
+
+                <Label Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="3"
+                       Content="Valve - Output Parameter:"
+                       Padding="0,10,0,0" FontWeight="SemiBold"/>
+
+                <TextBlock Grid.Row="4" Grid.Column="0" Text="Parameter:"/>
+                <TextBox Grid.Row="4" Grid.Column="1" x:Name="txtOutputParameter"
+                         Margin="5" IsReadOnly="True"/>
+                <Button Grid.Row="4" Grid.Column="2" Content="Select..."
+                        Click="BtnSelectOutputParameter_Click" Padding="10,5"/>
+            </Grid>
+        </GroupBox>
+
+        <!-- MIDDLE RIGHT: Valve Categories -->
+        <GroupBox Grid.Row="1" Grid.Column="1" Header="Valve Categories"
+                  ToolTip="Select categories and filters in project for desired valve collection">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <ListBox Grid.Row="0" x:Name="lstValveCategories" Margin="5">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="5"/>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" 
+                            HorizontalAlignment="Right" Margin="0,5,0,0">
+                    <Button Content="Add..." Click="BtnAddValveCategory_Click"/>
+                    <Button Content="Edit" Click="BtnEditValveCategory_Click"/>
+                    <Button Content="Remove" Click="BtnRemoveValveCategory_Click"/>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <!-- BOTTOM LEFT: MEP Categories -->
+        <GroupBox Grid.Row="2" Grid.Column="0" Header="MEP Categories to Search"
+                  ToolTip="Select which MEP categories to search for service data. More categories = slower performance. Only add what you need.">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+
+                <ListBox Grid.Row="0" x:Name="lstMEPCategories" Margin="5" MinHeight="100">
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="5"/>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <StackPanel Grid.Row="1" Orientation="Horizontal" 
+                            HorizontalAlignment="Right" Margin="0,5,0,0">
+                    <Button Content="Add..." Click="BtnAddMEPCategory_Click"/>
+                    <Button Content="Remove" Click="BtnRemoveMEPCategory_Click"/>
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <!-- BOTTOM RIGHT: Scope -->
+        <GroupBox Grid.Row="2" Grid.Column="1" Header="Target Scope"
+                  ToolTip="Select defualt scope for where the valves should be collected from">
+            <StackPanel>
+                <Label Content="Default Scope Target:" Margin="0,10"
+                       Padding="0,0" FontWeight="SemiBold"/>
+                <RadioButton x:Name="rbScopeActive" Content="Active View" Margin="5"/>
+                <RadioButton x:Name="rbScopeProject" Content="Entire Projet" Margin="5"/>
+                <Label Content="Override defualt scope if views in project browser or elements are selected:" Margin="0,10"
+                       Padding="0,0" FontWeight="SemiBold"/>
+                <CheckBox x:Name="chkEnableSelectionOverride"
+                          Content="Enable Selection Overrides"
+                          Margin="5">
+                    <CheckBox.ToolTip>
+                        <ToolTip>
+                            <StackPanel>
+                                <TextBlock Text="Selection Overrides" FontWeight="Bold" Margin="0,0,0,4"/>
+                                <TextBlock Text="When enabled, the script will operate on your current Revit selection instead of the default scope." TextWrapping="Wrap" Margin="0,0,0,6"/>
+
+                                <TextBlock Text="• Family Instance Selection" FontWeight="Bold" Margin="0,0,0,2"/>
+                                <TextBlock Text="If any valve family instances are selected, only those elements will be processed." 
+                           TextWrapping="Wrap" Margin="10,0,0,6"/>
+
+                                <TextBlock Text="• View or Sheet Selection" FontWeight="Bold" Margin="0,0,0,2"/>
+                                <TextBlock Text="If any views or sheets are selected in the Project Browser, valves will be collected from those views (including all views placed on selected sheets)." 
+                           TextWrapping="Wrap" Margin="10,0,0,0"/>
+                            </StackPanel>
+                        </ToolTip>
+                    </CheckBox.ToolTip>
+                </CheckBox>
+
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Action Buttons -->
+        <StackPanel Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" Margin="0,10,0,0">
+
+            <Border Background="#FFF5F5F5" 
+                    BorderBrush="#FFCCCCCC" 
+                    BorderThickness="1" 
+                    CornerRadius="3"
+                    Padding="8,5"
+                    Margin="5,0,10,0">
+                
+                <StackPanel Orientation="Horizontal">
+                    <!-- Profile Label -->
+                    <TextBlock Text="Profile:" 
+                               VerticalAlignment="Center" 
+                               Margin="0,0,8,0"
+                               FontWeight="SemiBold"/>
+
+                    <!-- Profile Selector ComboBox -->
+                    <ComboBox x:Name="cmbProfiles" 
+                              Width="180"
+                              Height="26"
+                              VerticalAlignment="Center"
+                              SelectionChanged="CmbProfiles_SelectionChanged"
+                              ToolTip="Select a saved profile">
+                            <ComboBox.ItemContainerStyle>
+                                <Style TargetType="ComboBoxItem">
+                                    <Setter Property="Padding" Value="8,4"/>
+                                </Style>
+                            </ComboBox.ItemContainerStyle>
+                        </ComboBox>
+
+                    <!-- New Profile Button -->
+                    <Button x:Name="btnNewProfile"
+                            Style="{StaticResource SmallIconButton}"
+                            Click="BtnNewProfile_Click"
+                            ToolTip="Create new profile">
+                        <Button.Content>
+                            <Path Data="M19,13H13V19H11V13H5V11H11V5H13V11H19V13Z" 
+                                    Fill="Black" 
+                                    Stretch="Uniform"
+                                    Width="14" Height="14"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"/>
+                        </Button.Content>
+                    </Button>
+
+                    <!-- Save Profile Button -->
+                    <Button x:Name="btnSaveProfile"
+                            Content="🖫"
+                            Style="{StaticResource SmallIconButton}"
+                            Padding="0,-2,0,0"
+                            FontSize="20"
+                            FontWeight="Bold"
+                            Click="BtnSaveProfile_Click"
+                            ToolTip="Save current settings to selected profile"/>
+
+                    <!-- Delete Profile Button -->
+                    <Button x:Name="btnDeleteProfile"
+                            Content="🗑"
+                            Style="{StaticResource SmallIconButton}"
+                            Padding="0,-2,0,0"
+                            FontSize="14"
+                            Click="BtnDeleteProfile_Click"
+                            ToolTip="Delete selected profile"/>
+                </StackPanel>
+            </Border>
+
+
+            <Button Content="Set as Default" Click="BtnSetAsDefault_Click" 
+                    FontWeight="SemiBold"
+                    ToolTip="Save as the default configuration"/>
+            <Button Content="Run" Click="BtnRun_Click" 
+                    FontWeight="Bold" Background="#FF4CAF50" Foreground="White"
+                    ToolTip="Run extraction with current settings"/>
+            <Button Content="Close" Click="BtnCancel_Click"
+                    ToolTip="Close without running"/>
+        </StackPanel>
+    </Grid>
+</Window>

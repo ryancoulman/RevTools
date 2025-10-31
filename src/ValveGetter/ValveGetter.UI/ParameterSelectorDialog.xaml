@@ -1,0 +1,77 @@
+﻿<Window x:Class="ValveGetter.UI.ParameterSelectorDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Select Output Parameter"
+        Height="500" Width="400"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        MinHeight="400" MinWidth="350">
+
+    <Window.Resources>
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="15,5"/>
+            <Setter Property="Margin" Value="5"/>
+            <Setter Property="MinWidth" Value="80"/>
+        </Style>
+    </Window.Resources>
+
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <TextBlock Grid.Row="0" 
+                   Text="Select a parameter to write valve service data to:"
+                   FontWeight="SemiBold"
+                   Margin="5"
+                   TextWrapping="Wrap"/>
+
+        <!-- Search Box -->
+        <GroupBox Grid.Row="1" Header="Search" Margin="5">
+            <TextBox x:Name="txtSearch"
+                     Height="25"
+                     VerticalContentAlignment="Center"
+                     Padding="5,0"
+                     TextChanged="TxtSearch_TextChanged"
+                     ToolTip="Type to filter parameters"/>
+        </GroupBox>
+
+        <!-- Parameter List -->
+        <GroupBox Grid.Row="2" Header="Available Parameters" Margin="5">
+            <ListBox x:Name="lstParameters"
+                     SelectionChanged="LstParameters_SelectionChanged"
+                     MouseDoubleClick="LstParameters_MouseDoubleClick"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                        <Setter Property="Padding" Value="8,4"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListBox.ItemContainerStyle>
+            </ListBox>
+        </GroupBox>
+
+        <!-- Buttons -->
+        <StackPanel Grid.Row="3" 
+                    Orientation="Horizontal" 
+                    HorizontalAlignment="Right" 
+                    Margin="0,10,0,0">
+            <Button x:Name="btnOk" 
+                    Content="OK" 
+                    Click="BtnOk_Click" 
+                    IsDefault="True"
+                    FontWeight="Bold"/>
+            <Button Content="Cancel" 
+                    Click="BtnCancel_Click" 
+                    IsCancel="True"/>
+        </StackPanel>
+    </Grid>
+</Window>
