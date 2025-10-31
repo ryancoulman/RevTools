@@ -96,4 +96,4 @@ Not currently accepting external contributions as this is a portfolio/learning p
 
 ---
 
-**Note to Reviewers:** This project is actively under development and represents ongoing work in software engineering, API integration, and domain-specific problem solving for the architecture/engineering/construction industry. Code quality and architecture are prioritized over feature completeness.
+**Note to Reviewers:** This project is actively under development and represents ongoing work in software engineering, API integration, and domain-specific problem solving for the architecture/engineering/construction industry.
