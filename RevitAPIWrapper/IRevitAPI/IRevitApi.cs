@@ -4,10 +4,18 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+// Use revit api iheritance levels to split up irevit api
+
 namespace IRevitAPI
 {
-    internal interface IRevitApi
+    public interface IBaseAPI 
     {
-        IElementApi Elements { get; }
     }
+
+    public interface IRevitApi :
+    IBaseAPI,
+    IConnectorsApi,
+    IXYZApi
+    // Add more as needed: IDocumentApi, IElementApi, etc.
+    { }
 }

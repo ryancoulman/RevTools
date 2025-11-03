@@ -7,10 +7,9 @@ using Autodesk.Revit.DB;
 
 namespace IRevitAPI
 {
-    internal interface IElementApi
+    public interface IElementApi : IBaseAPI
     {
         ElementId GetElementId(Element elem);
-        XYZ GetConnectorOrigin(Connector connector);
-        bool IsPhysicalConnector(Connector connector);
+
     }
 }

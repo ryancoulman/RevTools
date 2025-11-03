@@ -86,7 +86,7 @@ namespace RevitAddin
             // --- Define secondary button(s) ---
             PushButtonData secondaryButtonData = new PushButtonData(
                 "ValveGetterAdvanced",
-                "Valve Getter Advanced",
+                "Advanced",
                 assemblyPath,
                 "RevitAddin.Commands.ValveGetterCommandAdvanced" // ← secondary command class
             );
