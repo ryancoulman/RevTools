@@ -1,6 +1,9 @@
 ﻿using Autodesk.Revit.UI;
 using System;
+using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 
 namespace RevitAddin
@@ -28,7 +31,7 @@ namespace RevitAddin
             }
 
             // Add all tool buttons to the panel
-            AddValveGetterButton(panel);
+            AddValveGetterSplitButton(panel);
 
             // Future tools:
             // AddPipeAnalyzerButton(panel);
@@ -68,54 +71,95 @@ namespace RevitAddin
         /// <summary>
         /// Adds the ValveGetter button to the panel
         /// </summary>
-        private void AddValveGetterButton(RibbonPanel panel)
+        private void AddValveGetterSplitButton(RibbonPanel panel)
         {
             string assemblyPath = Assembly.GetExecutingAssembly().Location;
 
-            PushButtonData buttonData = new PushButtonData(
-                "ValveGetterButton",           // Internal name
-                "Valve\nGetter",               // Display text (use \n for two lines)
-                assemblyPath,                  // DLL path
-                "RevitAddin.Commands.ValveGetterCommand"  // Full class name
+            // --- Define main (smart) button ---
+            PushButtonData mainButtonData = new PushButtonData(
+                "ValveGetterMain",
+                "Valve Getter",
+                assemblyPath,
+                "RevitAddin.Commands.ValveGetterCommandMain" // ← primary command class
             );
 
-            PushButton button = panel.AddItem(buttonData) as PushButton;
+            // --- Define secondary button(s) ---
+            PushButtonData secondaryButtonData = new PushButtonData(
+                "ValveGetterAdvanced",
+                "Valve Getter Advanced",
+                assemblyPath,
+                "RevitAddin.Commands.ValveGetterCommandAdvanced" // ← secondary command class
+            );
 
-            // Set tooltip
-            button.ToolTip = "Extract valve service information from Revit model";
-            button.LongDescription =
-                "Scans the active Revit model for valves and extracts service " +
-                "information including pipe system, size, and location data.";
+            // --- Create the SplitPushButtonData ---
+            SplitButtonData splitButtonData = new SplitButtonData(
+                "ValveGetterSplit",
+                "Valve Getter Advanced" // This is the dropdown title shown on ribbon
+            );
 
-            // Optional: Add icon (uncomment when you have an icon file)
-             button.LargeImage = GetEmbeddedImage("RevitAddin.Resources.ValveGetterIcon_32x32.png");
+            // --- Add SplitPushButton to the panel ---
+            SplitButton splitButton = panel.AddItem(splitButtonData) as SplitButton;
+
+            // 3. Set IsSynchronizedWithCurrentItem to false for static behavior
+            if (splitButton != null)
+            {
+                splitButton.IsSynchronizedWithCurrentItem = false;
+            }
+
+            // --- Add both PushButtons ---
+            PushButton mainButton = splitButton.AddPushButton(mainButtonData);
+            PushButton secondaryButton = splitButton.AddPushButton(secondaryButtonData);
+
+            // --- Set icons and tooltips for each ---
+            mainButton.LargeImage = GetEmbeddedImage("RevitAddin.Resources.valveGetterIcon96.png", 32);
+            mainButton.Image = GetEmbeddedImage("RevitAddin.Resources.valveGetterIcon96.png", 16);
+            mainButton.ToolTip = "Extract valve service information from Revit model.";
+
+            secondaryButton.LargeImage = GetEmbeddedImage("RevitAddin.Resources.valveGetterFormIcon96.png", 32);
+            secondaryButton.Image = GetEmbeddedImage("RevitAddin.Resources.valveGetterFormIcon96.png", 16);
+            secondaryButton.ToolTip = "Advanced settings for full BIM extraction.";
+
+            // --- Set the default 'smart' button (what happens when you click the top half) ---
+            //splitButton.CurrentButton = mainButton; 
         }
 
 
-        /// <summary>
-        /// Helper method to load embedded image resources (for icons)
-        /// </summary>
-        private BitmapImage GetEmbeddedImage(string resourceName)
+        // Helper function to load an image stream. To solve scaling issue convert to image to ico and back to png online
+        private ImageSource GetEmbeddedImage(string resourceName, int targetSize = 32)
         {
-            try
-            {
-                Assembly assembly = Assembly.GetExecutingAssembly();
-                System.IO.Stream stream = assembly.GetManifestResourceStream(resourceName);
+            var assembly = Assembly.GetExecutingAssembly();
 
+            using (Stream stream = assembly.GetManifestResourceStream(resourceName))
+            {
                 if (stream == null)
-                    return null;
+                    throw new InvalidOperationException(
+                        $"Resource '{resourceName}' not found. Ensure Build Action is 'Embedded Resource'."
+                    );
 
-                BitmapImage image = new BitmapImage();
-                image.BeginInit();
-                image.StreamSource = stream;
-                image.EndInit();
+                var decoder = new PngBitmapDecoder(stream,
+                                                   BitmapCreateOptions.PreservePixelFormat,
+                                                   BitmapCacheOption.OnLoad);
+                BitmapSource bitmapSource = decoder.Frames[0];
 
-                return image;
-            }
-            catch
-            {
-                return null;
+                // If image isn't already the right size, rescale it
+                if (bitmapSource.PixelWidth != targetSize || bitmapSource.PixelHeight != targetSize)
+                {
+                    double scaleX = (double)targetSize / bitmapSource.PixelWidth;
+                    double scaleY = (double)targetSize / bitmapSource.PixelHeight;
+
+                    var scaled = new TransformedBitmap(bitmapSource,
+                        new ScaleTransform(scaleX, scaleY));
+
+                    scaled.Freeze();
+                    return scaled;
+                }
+                else
+                {
+                    bitmapSource.Freeze();
+                    return bitmapSource;
+                }
             }
         }
+
     }
 }

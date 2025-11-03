@@ -330,23 +330,6 @@ namespace ValveGetter.Core
         }
 
 
-        private double SqDistance(double[] pt1, double[] pt2)
-        {
-            double dx = pt1[0] - pt2[0];
-            if (Math.Abs(dx) > _proximityTolerance) 
-                return double.PositiveInfinity;
-
-            double dy = pt1[1] - pt2[1];
-            if (Math.Abs(dy) > _proximityTolerance) 
-                return double.PositiveInfinity;
-
-            double dz = pt1[2] - pt2[2];
-            if (Math.Abs(dz) > _proximityTolerance) 
-                return double.PositiveInfinity;
-
-            return dx * dx + dy * dy + dz * dz;
-        }
-
         /// <summary>
         ///  Fist check for directly connected MEP elements. If connected on either side return that service   
         /// </summary>
@@ -688,6 +671,23 @@ namespace ValveGetter.Core
 
                 t.Commit();
             }
+        }
+
+        private double SqDistance(double[] pt1, double[] pt2)
+        {
+            double dx = pt1[0] - pt2[0];
+            if (Math.Abs(dx) > _proximityTolerance)
+                return double.PositiveInfinity;
+
+            double dy = pt1[1] - pt2[1];
+            if (Math.Abs(dy) > _proximityTolerance)
+                return double.PositiveInfinity;
+
+            double dz = pt1[2] - pt2[2];
+            if (Math.Abs(dz) > _proximityTolerance)
+                return double.PositiveInfinity;
+
+            return dx * dx + dy * dy + dz * dz;
         }
 
         // / Utility conversion methods
