@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using IRevitAPI;
 using Autodesk.Revit.DB;
 
-namespace RevitAPI2023
+namespace IRevitAPIWrapper
 {
-    public partial class RevitApi2023 : IElementApi
+    public interface IElementApi : IBaseAPI
     {
-        public ElementId GetElementId(Element e) => e.Id;
+        ElementId GetElementId(Element elem);
+
     }
 }

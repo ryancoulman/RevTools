@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-
+using Autodesk.Revit.DB;
 // Use revit api iheritance levels to split up irevit api
 
-namespace IRevitAPI
+namespace IRevitAPIWrapper
 {
     public interface IBaseAPI 
     {

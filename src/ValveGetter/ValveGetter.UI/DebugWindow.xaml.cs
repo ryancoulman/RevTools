@@ -47,8 +47,14 @@ namespace ValveGetter.UI
 
         private void SelectAllButton_Click(object sender, RoutedEventArgs e)
         {
-            OutputTextBox.SelectAll();
+            // Only select if not already fully selected
+            if (OutputTextBox.SelectionLength != OutputTextBox.Text.Length)
+            {
+                OutputTextBox.SelectAll();
+            }
+
             OutputTextBox.Focus();
         }
+
     }
 }

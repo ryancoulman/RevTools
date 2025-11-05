@@ -1,104 +1,26 @@
-<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{C0B773F4-D880-4903-9897-DDA217807F8D}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>RevitAddin</RootNamespace>
-    <AssemblyName>RevitAddin</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <Deterministic>true</Deterministic>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>bin\x64\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <DebugType>full</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <OutputPath>bin\x64\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-  </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="PresentationCore" />
-    <Reference Include="RevitAPI">
-      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2023\RevitAPI.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="RevitAPIUI">
-      <HintPath>..\..\..\..\..\..\Program Files\Autodesk\Revit 2023\RevitAPIUI.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Net.Http" />
-    <Reference Include="System.Xml" />
-    <Reference Include="WindowsBase" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Application.cs" />
-    <Compile Include="Commands\ValveGetterCommand.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RibbonBuilder.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Manifests\RevTools.2023.addin" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\src\ValveGetter\ValveGetter.Command\ValveGetter.Command.csproj">
-      <Project>{33d005a0-392f-499f-8fa8-e637ca71b57b}</Project>
-      <Name>ValveGetter.Command</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\valveGetterFormIcon96.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <EmbeddedResource Include="Resources\valveGetterIcon96.png" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>
-set RevitVersion=2023
-set AddinFolder=%25AppData%25\Autodesk\Revit\Addins\%25RevitVersion%25\RevTools
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
-if not exist "%25AddinFolder%25" mkdir "%25AddinFolder%25"
+	<ItemGroup>
+	  <None Remove="Resources\valveGetterFormIcon96.png" />
+	  <None Remove="Resources\valveGetterIcon96.png" />
+	</ItemGroup>
 
-xcopy /Y /E /I "$(TargetDir)*.*" "%25AddinFolder%25\"
-copy /Y "$(ProjectDir)Manifests\RevTools.2023.addin" "%25AppData%25\Autodesk\Revit\Addins\%25RevitVersion%25\"
-</PostBuildEvent>
-  </PropertyGroup>
+	<ItemGroup>
+	  <EmbeddedResource Include="Resources\valveGetterFormIcon96.png" />
+	  <EmbeddedResource Include="Resources\valveGetterIcon96.png" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <ProjectReference Include="..\src\ValveGetter\ValveGetter.Command\ValveGetter.Command.csproj" />
+	  <ProjectReference Include="..\src\ValveGetter\ValveGetter.Core\ValveGetter.Core.csproj" />
+	  <ProjectReference Include="..\src\ValveGetter\ValveGetter.Settings\ValveGetter.Settings.csproj" />
+	  <ProjectReference Include="..\src\ValveGetter\ValveGetter.UI\ValveGetter.UI.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Reference Include="PresentationCore" />
+	  <Reference Include="PresentationFramework" />
+	  <Reference Include="WindowsBase" />
+	</ItemGroup>
+
 </Project>

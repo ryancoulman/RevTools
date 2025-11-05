@@ -1,14 +1,13 @@
-﻿using IRevitAPI;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
 using Autodesk.Revit.DB;
+using IRevitAPIWrapper;
 
-namespace RevitAPI2023
+namespace RevitAPIWrapper
 {
-    public partial class RevitApi2023 : IConnectorsApi
+    public partial class RevitApi : IConnectorsApi
     {
         public XYZ GetConnectorOrigin(Connector connector) => connector.Origin;
         public bool IsPhysicalConnector(Connector connector) =>
@@ -18,10 +17,10 @@ namespace RevitAPI2023
 
     }
 
-    public partial class RevitApi2023 : IXYZApi
+    public partial class RevitApi : IXYZApi
     {
         public double GetX(XYZ point) => point.X;
         public double GetY(XYZ point) => point.Y;
         public double GetZ(XYZ point) => point.Z;
-}
+    }
 }

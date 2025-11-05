@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace IRevitAPI
+namespace IRevitAPIWrapper
 {
     // For any flat api methods that have no parent or child classes
     public interface IConnectorsApi : IBaseAPI

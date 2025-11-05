@@ -946,7 +946,13 @@ namespace ValveGetter.Core
             switch (settings.CollectionScope)
             {
                 case ValveCollectionScope.ActiveView:
-                    return CollectValvesFromViews(doc, settings, new[] { uidoc.ActiveView });
+                    var view = uidoc.ActiveView;
+                    if (view is ViewSheet sheet)
+                    {
+                        var sheetViews = GetViewsOnSheet(doc, sheet).ToArray();
+                        return CollectValvesFromViews(doc, settings, sheetViews);
+                    }   
+                    return CollectValvesFromViews(doc, settings, new[] { view });
 
                 case ValveCollectionScope.EntireProject:
                     return CollectValvesFromDocument(doc, settings);
