@@ -184,6 +184,8 @@ namespace ValveGetter.Command
 // 1. Sort out the paramater selection. 
 //   a. Use bip not just random strings 
 //   b. Imlement one time check in backend to see if can use property not param
+//   c. There should be some dependency between the selected valve categoreies and filters and avaliable params. Much like with revit filters
+//   d. collect the elems that match the category filters and find union of common params 
 // 2. MVMM for UI 
 // 3. Revit API wrapper 
 // 4. Sort out error messages and catch statements 

@@ -60,8 +60,9 @@ namespace ValveGetter.UI
                     // Get the user-visible, localized name of the category
                     _allParameters.Add(new ParameterItem
                     {
-                        ParameterId = (long)bip,
                         ParameterName = parameter.Definition.Name,
+                        ParameterBipId = (long)bip,
+                        ParameterGUID = "",
                         IsCommon = isCommon,
                     });
                 }
@@ -86,7 +87,7 @@ namespace ValveGetter.UI
             throw new ArgumentNullException("No sample elements found");
         }
 
-        private void AddInstanceParametersToList(List<BuiltInParameter> commonBips, Element sampleElem)
+        private void AddInstanceParametersToList(Element sampleElem, List<BuiltInParameter> commonBips = null, )
         {
             // Get instance parameters
             foreach (Parameter param in sampleElem.Parameters)
@@ -98,46 +99,33 @@ namespace ValveGetter.UI
                     if (definition is InternalDefinition internalDef)
                     {
                         var builtInParam = internalDef.BuiltInParameter;
-                        if (builtInParam != BuiltInParameter.INVALID && !commonBips.Contains(builtInParam))
+                        if (commonBips != null && commonBips.Contains(builtInParam)) continue;
+                        if (builtInParam != BuiltInParameter.INVALID)
                         {
                             _allParameters.Add(new ParameterItem
                             {
                                 ParameterName = definition.Name,
-                                ParameterId = (long)builtInParam,
+                                ParameterBipId = (long)builtInParam,
+                                ParameterGUID = "",
                                 IsCommon = false,
                                 Category = "Fabrication Part Parameters",
-                                IsProperty = false
                             });
                         }
-                        else
+                        else if (param.IsShared)
                         {
-                            // User-defined non-shared project parameter or family parameter
+                            // User-defined shared project parameter 
                             _allParameters.Add(new ParameterItem
                             {
                                 ParameterName = definition.Name,
-                                ParameterId = 0L,
-                                ParamaterGUID = "",
+                                ParameterBipId = 0L,
+                                ParameterGUID = param.GUID.ToString(),
                                 IsCommon = false,
                                 Category = "Fabrication Part Parameters",
-                                IsProperty = false
                             });
                         }
-                    }
-                    else if (definition is ExternalDefinition externalDef)
-                    {
-                        // User-defined shared project parameter 
-                        _allParameters.Add(new ParameterItem
-                        {
-                            ParameterName = definition.Name,
-                            ParameterId = 0L,
-                            ParameterGUID = externalDef.GUID,
-                            IsCommon = false,
-                            Category = "Fabrication Part Parameters",
-                            IsProperty = false
-                        });
                     }
                 }
-                catch
+                catch 
                 {
                     // Log and continue
                 }
@@ -166,17 +154,11 @@ namespace ValveGetter.UI
             AddNewBipsToList(commonServiceParams, sampleFabPart, true);
 
             // Get sample FabricationPart to check available parameters
-            AddInstanceParametersToList(commonServiceParams, sampleFabPart);
+            AddInstanceParametersToList(sampleFabPart, commonServiceParams);
         }
 
         private void LoadValveParameters()
         {
-            // Common writable text parameters (high priority)
-            List<BuiltInParameter> commonValveParams =
-            [
-                BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS,
-                BuiltInParameter.ALL_MODEL_MARK,
-            ];
 
             Element sampleValve = GetSampleElementOfCategory(new List<BuiltInCategory>
             {
@@ -185,11 +167,8 @@ namespace ValveGetter.UI
                 BuiltInCategory.OST_GenericModel,
             });
 
-            // Add common parameters first
-            AddNewBipsToList(commonValveParams, sampleValve, true);
-
             // Get sample valve element to check available parameters
-            AddInstanceParametersToList(commonValveParams, sampleValve);
+            AddInstanceParametersToList(sampleValve);
         }
 
         private bool IsWritableTextParameter(Parameter param)
@@ -268,13 +247,9 @@ namespace ValveGetter.UI
                 // Add parameters
                 foreach (var param in group)
                 {
-                    var displayName = param.IsProperty
-                        ? $"{param.Name} (Property)"
-                        : param.Name;
-
                     var item = new ListBoxItem
                     {
-                        Content = displayName,
+                        Content = param.ParameterName,
                         Tag = param,
                         FontWeight = param.IsCommon ? System.Windows.FontWeights.SemiBold : System.Windows.FontWeights.Normal
                     };
@@ -328,7 +303,7 @@ namespace ValveGetter.UI
             if (lstParameters.SelectedItem is ListBoxItem selectedItem &&
                 selectedItem.Tag is ParameterItem param)
             {
-                SelectedParameterName = param.Name;
+                SelectedParameterName = param.ParameterName;
                 DialogResult = true;
                 Close();
             }
@@ -341,10 +316,13 @@ namespace ValveGetter.UI
         }
         private class ParameterItem
         {
-            public long ParameterId { get; set; }
+            public long ParameterBipId { get; set; }
             public string ParameterName { get; set; }
+            public string ParameterGUID { get; set; }
             public bool IsCommon { get; set; }
             public string Category { get; set; }
+            public bool IsProperty { get; set; } 
+
         }
     }
 }

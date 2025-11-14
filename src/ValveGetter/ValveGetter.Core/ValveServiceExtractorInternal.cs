@@ -314,6 +314,8 @@ namespace ValveGetter.Core
             Stopwatch swGetOrigin = new Stopwatch();
             Stopwatch swToDoubleArray = new Stopwatch();
             Stopwatch swListAdd = new Stopwatch();
+            double swOriginElapsed = 0.0;
+            Dictionary<int, double> originTimes = new Dictionary<int, double>();
 
             int managerCallCount = 0;
             int connectorIterationCount = 0;
@@ -357,6 +359,13 @@ namespace ValveGetter.Core
                             swGetOrigin.Start();
                             XYZ origin = connector.Origin;
                             swGetOrigin.Stop();
+                            var elapsed = swGetOrigin.Elapsed.TotalMilliseconds;
+                            originTimes[_mepElementIds[i]] = elapsed;
+                            swOriginElapsed += elapsed;
+                            swGetOrigin.Reset();
+
+                            swOriginElapsed += elapsed;
+                            swGetOrigin.Reset();
                             originGetCount++;
 
                             swToDoubleArray.Start();
@@ -389,13 +398,28 @@ namespace ValveGetter.Core
             sb.AppendLine($"");
             sb.AppendLine($"Get ConnectorSet: {swIterateConnectors.ElapsedMilliseconds} ms");
             sb.AppendLine($"Get ConnectorType: {swGetConnectorType.ElapsedMilliseconds} ms ({typeCheckCount} checks, avg {(typeCheckCount > 0 ? swGetConnectorType.ElapsedMilliseconds / (double)typeCheckCount : 0):F2} ms/check)");
-            sb.AppendLine($"Get Origin: {swGetOrigin.ElapsedMilliseconds} ms ({originGetCount} gets, avg {(originGetCount > 0 ? swGetOrigin.ElapsedMilliseconds / (double)originGetCount : 0):F2} ms/get)");
+            sb.AppendLine($"Get Origin: {swOriginElapsed} ms ({originGetCount} gets, avg {(originGetCount > 0 ? swOriginElapsed / (double)originGetCount : 0):F2} ms/get)");
             sb.AppendLine($"ToDoubleArray: {swToDoubleArray.ElapsedMilliseconds} ms");
             sb.AppendLine($"List.Add: {swListAdd.ElapsedMilliseconds} ms");
             sb.AppendLine($"");
             sb.AppendLine($"Total connectors iterated: {connectorIterationCount}");
             sb.AppendLine($"Connectors added: {pointsToAdd.Count}");
             sb.AppendLine($"Exceptions caught: {exceptionCount}");
+
+            // sort originTimes by descending time
+            var sortedOriginTimes = originTimes.OrderByDescending(kvp => kvp.Value);
+            // Output the top 100 slowest origins and the top 100 fastest (and their times)
+            sb.AppendLine($"Top 100 slowest Get Origin times:");
+            foreach (var kvp in sortedOriginTimes.Take(100))
+            {
+                sb.AppendLine($"Element ID {kvp.Key}: {kvp.Value:F2} ms");
+            }
+            sb.AppendLine($"Top 100 fastest Get Origin times:");
+            foreach (var kvp in sortedOriginTimes.Reverse().Take(100))
+            {
+                sb.AppendLine($"Element ID {kvp.Key}: {kvp.Value:F2} ms");
+            }
+
 
             TaskDialog.Show("Timing Breakdown", sb.ToString());
 
