@@ -1,0 +1,7 @@
+<Project>
+  <PropertyGroup>
+    <!-- Force obj/bin structure: obj/<TFM>/<Configuration>/, bin/<TFM>/<Configuration>/ -->
+    <!--<IntermediateOutputPath>$(MSBuildProjectDirectory)\obj\$(TargetFramework)\$(Configuration)\</IntermediateOutputPath>-->
+    <!--<OutputPath>$(MSBuildProjectDirectory)\bin\$(TargetFramework)\$(Configuration)\</OutputPath>-->
+  </PropertyGroup>
+</Project>

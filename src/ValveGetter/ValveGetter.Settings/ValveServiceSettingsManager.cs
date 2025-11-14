@@ -43,30 +43,30 @@ namespace ValveGetter.Settings
                 TouchingDistMm = 5.0,
                 DebugMode = DebugLevel.Concise,
                 WriteToParameters = true,
-                InputParameterName = "ServiceName",
+                InputParameterName = "Service Name",
                 OutputParameterName = "Comments",
                 CollectionScope = ValveCollectionScope.EntireProject,
                 AllowSelectionOverrides = true,
-                ValveCategoryFilters = new List<CategoryFilter>
-                {
+                ValveCategoryFilters =
+                [
                     new CategoryFilter
                     {
-                        CategoryId = -2008055, // OST_PipeAccessory Id
+                        CategoryId = -2008055L, // OST_PipeAccessory
                         CategoryName = "Pipe Accessories",
-                        NameCondition = "valve",
-                        ConditionTarget = FilterTarget.FamilyName
+                        NameCondition = "",
+                        ConditionTarget = FilterTarget.NoTarget,
                     }
-                },
-                MEPCategoryFilters = new List<CategoryFilter>
-                {
+                ],
+                MEPCategoryFilters =
+                [
                     new CategoryFilter
                     {
-                        CategoryId = -2008208, // Fabrication Pipework
+                        CategoryId = -2008208L, // OST_FabricationPipework
                         CategoryName = "MEP Fabrication Pipework",
                         NameCondition = "",
-                        ConditionTarget = FilterTarget.FamilyName
+                        ConditionTarget = FilterTarget.NoTarget,
                     }
-                }
+                ]
             };
         }
 
@@ -238,8 +238,9 @@ namespace ValveGetter.Settings
 
     public class CategoryFilter
     {
-        public int CategoryId { get; set; }
         public string CategoryName { get; set; }
+        public long CategoryId { get; set; }
+
         public string NameCondition { get; set; }
         public FilterTarget ConditionTarget { get; set; }
     }
@@ -247,7 +248,8 @@ namespace ValveGetter.Settings
     public enum FilterTarget
     {
         FamilyName,
-        TypeName
+        TypeName,
+        NoTarget
     }
 
     public enum ValveCollectionScope

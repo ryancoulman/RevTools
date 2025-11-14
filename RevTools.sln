@@ -18,7 +18,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
 		Directory.Build.props = Directory.Build.props
-		..\RevitAddIn1\global.json = ..\RevitAddIn1\global.json
+		Directory.Build.targets = Directory.Build.targets
+		global.json = global.json
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RevitAPIWrapper", "RevitAPIWrapper\RevitAPIWrapper\RevitAPIWrapper.csproj", "{F41863CD-8888-4AB1-9030-2EC894C63693}"
@@ -250,30 +251,18 @@ Global
 		{EB190255-4830-40D4-A256-423AFA3B2601}.Release|Any CPU.ActiveCfg = Release R21|Any CPU
 		{EB190255-4830-40D4-A256-423AFA3B2601}.Release|Any CPU.Build.0 = Release R21|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R21|Any CPU.ActiveCfg = Debug|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R21|Any CPU.Build.0 = Debug|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R22|Any CPU.ActiveCfg = Debug|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R22|Any CPU.Build.0 = Debug|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R23|Any CPU.ActiveCfg = Debug|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R23|Any CPU.Build.0 = Debug|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R24|Any CPU.ActiveCfg = Debug|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R24|Any CPU.Build.0 = Debug|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R25|Any CPU.ActiveCfg = Debug|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R25|Any CPU.Build.0 = Debug|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R26|Any CPU.ActiveCfg = Debug|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug R26|Any CPU.Build.0 = Debug|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R21|Any CPU.ActiveCfg = Release|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R21|Any CPU.Build.0 = Release|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R22|Any CPU.ActiveCfg = Release|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R22|Any CPU.Build.0 = Release|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R23|Any CPU.ActiveCfg = Release|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R23|Any CPU.Build.0 = Release|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R24|Any CPU.ActiveCfg = Release|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R24|Any CPU.Build.0 = Release|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R25|Any CPU.ActiveCfg = Release|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R25|Any CPU.Build.0 = Release|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R26|Any CPU.ActiveCfg = Release|Any CPU
-		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release R26|Any CPU.Build.0 = Release|Any CPU
 		{31F8C1E1-C3A1-420A-9A8D-A5F802114918}.Release|Any CPU.ActiveCfg = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution

@@ -19,7 +19,7 @@ namespace ValveGetter.Command
     /// </summary>
     public static class ValveServiceCommand
     {
-        public static void Execute(UIDocument uidoc, Mode mode)
+        public static void Execute(UIDocument uidoc, Mode mode = Mode.Advanced)
         {
             Document doc = uidoc.Document;
             ValveServiceSettings settings;
@@ -65,7 +65,7 @@ namespace ValveGetter.Command
             }
         }
 
-        private static void OutputResults(List<ValveServiceExtractor.ValveResult> results, DebugLevel debugMode)
+        private static void OutputResults(List<ValveResult> results, DebugLevel debugMode)
         {
             if (debugMode == DebugLevel.None)
                 return;
@@ -176,4 +176,22 @@ namespace ValveGetter.Command
         Default,
         Advanced
     }
+
 }
+
+
+// To Do 
+// 1. Sort out the paramater selection. 
+//   a. Use bip not just random strings 
+//   b. Imlement one time check in backend to see if can use property not param
+// 2. MVMM for UI 
+// 3. Revit API wrapper 
+// 4. Sort out error messages and catch statements 
+// BUILD 
+// 5. Clean up UI look 
+// 6. If DebugMode != full them do not compute and save origin etc of each elem. Inject approraite ValveResult class 
+
+
+
+// Replace the string connetector mode (ie 'proximity_cobnnector' with enums). same elsewhere (strings -> enums) 
+// Build a suitable method for testing wth pyrevit or other 

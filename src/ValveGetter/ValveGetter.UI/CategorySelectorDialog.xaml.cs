@@ -11,6 +11,7 @@ namespace ValveGetter.UI
     public partial class CategorySelectorDialog : Window
     {
         private readonly Document _doc;
+        private readonly Categories _categories;
         private readonly List<CategoryFilter> _existingFilters;
         private readonly string _mode; // "valve" or "mep"
         private readonly CategoryFilter _editingFilter;
@@ -24,6 +25,7 @@ namespace ValveGetter.UI
             CategoryFilter editFilter = null)
         {
             _doc = doc;
+            _categories = _doc.Settings.Categories;
             _existingFilters = existingFilters;
             _mode = mode.ToLower();
             _editingFilter = editFilter;
@@ -71,161 +73,74 @@ namespace ValveGetter.UI
         private void PopulateMEPCategories(List<CategoryItem> categoryList)
         {
             // MEP Fabrication categories
-            categoryList.Add(new CategoryItem
-            {
-                CategoryName = "──── Fabrication Categories ────",
-                IsSeparator = true
-            });
+            categoryList.Add(CreateSeperator("Fabrication Categories"));
+            // List of relevant BuiltInCategories for MEP Fabrication
+            List<BuiltInCategory> fabCategories =
+            [
+                BuiltInCategory.OST_FabricationDuctwork,
+                BuiltInCategory.OST_FabricationPipework,
+                BuiltInCategory.OST_FabricationContainment,
+                BuiltInCategory.OST_FabricationHangers,
+            ];
 
-            var fabCategories = new[]
-            {
-                "MEP Fabrication Pipework",
-                "MEP Fabrication Ductwork",
-                "MEP Fabrication Containment",
-                "MEP Fabrication Hangers"
-            };
-
-            // Add fabrication categories if they exist in the document
-            foreach (var fabCatName in fabCategories)
-            {
-                try
-                {
-                    var category = _doc.Settings.Categories.Cast<Category>()
-                        .FirstOrDefault(c => c.Name == fabCatName);
-
-                    if (category != null)
-                    {
-                        categoryList.Add(new CategoryItem
-                        {
-                            CategoryId = category.Id.IntegerValue,
-                            CategoryName = category.Name,
-                            IsCommon = true
-                        });
-                    }
-                }
-                catch { }
-            }
+            AddNewBicsToList(fabCategories, categoryList, true);
 
             // Non-fabrication MEP categories
-            categoryList.Add(new CategoryItem
-            {
-                CategoryName = "──── Standard MEP Categories ────",
-                IsSeparator = true
-            });
+            categoryList.Add(CreateSeperator("Standard MEP Categories"));
 
             // Get all MEPCurve catagories in the document
-            var mepCurveCategories = new FilteredElementCollector(_doc)
-                .OfClass(typeof(MEPCurve))
-                .WhereElementIsNotElementType()
-                .Select(e => e.Category)
-                .Where(c => c != null)
-                .GroupBy(c => c.Id.IntegerValue)
-                .Select(g => g.First())
-                .OrderBy(c => c.Name)
-                .ToList();
+            List<BuiltInCategory> mepCurveCategories =
+            [
+                BuiltInCategory.OST_PipeCurves,
+                BuiltInCategory.OST_DuctCurves,
+                BuiltInCategory.OST_CableTray,
+                BuiltInCategory.OST_Conduit,
+                BuiltInCategory.OST_FlexPipeCurves,
+                BuiltInCategory.OST_FlexDuctCurves
+            ];
 
             // Add MEP curve categories
-            try
-            {
-                foreach (var category in mepCurveCategories)
-                {
-                    categoryList.Add(new CategoryItem
-                    {
-                        CategoryId = category.Id.IntegerValue,
-                        CategoryName = category.Name,
-                        IsCommon = false
-                    });
-                }
-            }
-            catch { }
-            //// Only set MEP curve categories
-            //var standardMEPCategories = new[]
-            //{
-            //    BuiltInCategory.OST_PipeCurves,
-            //    BuiltInCategory.OST_DuctCurves,
-            //    BuiltInCategory.OST_CableTray,
-            //    BuiltInCategory.OST_Conduit,
-            //    BuiltInCategory.OST_FlexPipeCurves,
-            //    BuiltInCategory.OST_FlexDuctCurves
-            //};
-
-            //// Add standard MEP categories
-            //foreach (var builtInCat in standardMEPCategories)
-            //{
-            //    try
-            //    {
-            //        Category cat = Category.GetCategory(_doc, builtInCat);
-            //        if (cat != null)
-            //        {
-            //            categoryList.Add(new CategoryItem
-            //            {
-            //                CategoryId = cat.Id.IntegerValue,
-            //                CategoryName = cat.Name,
-            //                IsCommon = false
-            //            });
-            //        }
-            //    }
-            //    catch { }
-            //}
+            AddNewBicsToList(mepCurveCategories, categoryList, false);
         }
 
         private void PopulateValveCategories(List<CategoryItem> categoryList)
         {
             // Common valve categories
-            categoryList.Add(new CategoryItem
-            {
-                CategoryName = "──── Common Valve Categories ────",
-                IsSeparator = true
-            });
+            categoryList.Add(CreateSeperator("Common Valve Categories"));
 
-            var commonValveCategories = new[]
-            {
+            List<BuiltInCategory> commonValveCategories =
+            [
                 BuiltInCategory.OST_PipeAccessory,
                 BuiltInCategory.OST_MechanicalEquipment,
                 BuiltInCategory.OST_PlumbingFixtures,
                 BuiltInCategory.OST_PipeFitting,
-                BuiltInCategory.OST_GenericModel
-            };
+                BuiltInCategory.OST_GenericModel,
+            ];
 
             // Add common valve categories
-            foreach (var builtInCat in commonValveCategories)
-            {
-                try
-                {
-                    Category cat = Category.GetCategory(_doc, builtInCat);
-                    if (cat != null)
-                    {
-                        categoryList.Add(new CategoryItem
-                        {
-                            CategoryId = cat.Id.IntegerValue,
-                            CategoryName = cat.Name,
-                            IsCommon = true
-                        });
-                    }
-                }
-                catch { }
-            }
+            AddNewBicsToList(commonValveCategories, categoryList, true);
 
             // All other categories
-            categoryList.Add(new CategoryItem
+            categoryList.Add(CreateSeperator("Other Categories"));
+
+            // Get all model categories in the document excluding common valve categories
+            List<CategoryItem> tempList = [];
+            foreach (var cat in _categories)
             {
-                CategoryName = "──── Other Categories ────",
-                IsSeparator = true
-            });
-
-            var allCategories = _doc.Settings.Categories
-                .Cast<Category>()
-                .Where(c => c.CategoryType == CategoryType.Model)
-                .Where(c => !commonValveCategories.Any(bic => (int)bic == c.Id.IntegerValue))
-                .OrderBy(c => c.Name)
-                .Select(c => new CategoryItem
+                if (cat is Category category && category.CategoryType == CategoryType.Model)
                 {
-                    CategoryId = c.Id.IntegerValue,
-                    CategoryName = c.Name,
-                    IsCommon = false
-                });
+                    BuiltInCategory bic = category.BuiltInCategory;
+                    if (bic == BuiltInCategory.INVALID | commonValveCategories.Contains(bic)) continue;
+                    tempList.Add(new CategoryItem
+                    {
+                        CategoryId = (long)bic,
+                        CategoryName = category.Name,
+                        IsCommon = false,
+                    });
+                }
+            }
 
-            categoryList.AddRange(allCategories);
+            categoryList.AddRange(tempList.OrderBy(c => c.CategoryName));
         }
 
         private void LoadExistingFilter()
@@ -303,12 +218,45 @@ namespace ValveGetter.UI
             Close();
         }
 
+        private static CategoryItem CreateSeperator(string text) => new()
+        {
+            CategoryName = $"──── {text} ────",
+            IsSeparator = true
+        };
+
+        private void AddNewBicsToList(List<BuiltInCategory> bicList, List<CategoryItem> categoryList, bool isCommon)
+        {
+
+            foreach (BuiltInCategory bic in bicList)
+            {
+                try
+                {
+                    // Get the Category object from the document settings using the BuiltInCategory enum
+                    Category category = _categories.get_Item(bic);
+
+                    if (category == null) continue;
+
+                    // Get the user-visible, localized name of the category
+                    categoryList.Add(new CategoryItem
+                    {
+                        CategoryId = (long)bic,
+                        CategoryName = category.Name,
+                        IsCommon = isCommon,
+                    });
+                }
+                catch { }
+            }
+        }
+
+
         private class CategoryItem
         {
-            public int CategoryId { get; set; }
             public string CategoryName { get; set; }
+            public long CategoryId { get; set; }
             public bool IsCommon { get; set; }
             public bool IsSeparator { get; set; }
         }
+
+
     }
 }
