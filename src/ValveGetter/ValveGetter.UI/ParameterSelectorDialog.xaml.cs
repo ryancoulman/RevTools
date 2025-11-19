@@ -4,6 +4,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using Autodesk.Revit.DB;
+using ValveGetter.Settings;
 
 namespace ValveGetter.UI
 {
@@ -13,7 +14,7 @@ namespace ValveGetter.UI
         private readonly string _mode; // "Input" or "Output"
         private List<ParameterItem> _allParameters;
 
-        public string SelectedParameterName { get; private set; }
+        public ParameterFilter SelectedParameter { get; private set; }
 
         public ParameterSelectorDialog(Document doc, string mode = "Output")
         {
@@ -87,14 +88,15 @@ namespace ValveGetter.UI
             throw new ArgumentNullException("No sample elements found");
         }
 
-        private void AddInstanceParametersToList(Element sampleElem, List<BuiltInParameter> commonBips = null, )
+        private void AddInstanceParametersToList(Element sampleElem, List<BuiltInParameter> commonBips = null, bool allowOnlyWritableParams = true)
         {
+            var factoryMethod = allowOnlyWritableParams ? (Func<Parameter, bool>)IsWritableTextParameter : IsReadableTextParameter;
             // Get instance parameters
             foreach (Parameter param in sampleElem.Parameters)
             {
                 try
                 {
-                    if (!IsReadableTextParameter(param)) continue;
+                    if (!factoryMethod(param)) continue;
                     var definition = param.Definition;
                     if (definition is InternalDefinition internalDef)
                     {
@@ -154,7 +156,7 @@ namespace ValveGetter.UI
             AddNewBipsToList(commonServiceParams, sampleFabPart, true);
 
             // Get sample FabricationPart to check available parameters
-            AddInstanceParametersToList(sampleFabPart, commonServiceParams);
+            AddInstanceParametersToList(sampleFabPart, commonServiceParams, false);
         }
 
         private void LoadValveParameters()
@@ -168,7 +170,7 @@ namespace ValveGetter.UI
             });
 
             // Get sample valve element to check available parameters
-            AddInstanceParametersToList(sampleValve);
+            AddInstanceParametersToList(sampleValve, null, false);
         }
 
         private bool IsWritableTextParameter(Parameter param)
@@ -303,7 +305,12 @@ namespace ValveGetter.UI
             if (lstParameters.SelectedItem is ListBoxItem selectedItem &&
                 selectedItem.Tag is ParameterItem param)
             {
-                SelectedParameterName = param.ParameterName;
+                SelectedParameter = new ParameterFilter
+                {
+                    ParameterBipId = param.ParameterBipId,
+                    ParameterGUID = param.ParameterGUID,
+                    ParameterName = param.ParameterName,
+                };
                 DialogResult = true;
                 Close();
             }

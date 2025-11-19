@@ -95,8 +95,8 @@ namespace ValveGetter.UI
 
             // Parameters
             chkWriteToParameters.IsChecked = _settings.WriteToParameters;
-            txtInputParameter.Text = _settings.InputParameterName;
-            txtOutputParameter.Text = _settings.OutputParameterName;
+            txtInputParameter.Text = _settings.InputParameter.ParameterName;
+            txtOutputParameter.Text = _settings.OutputParameter.ParameterName;
 
             // Category filters
             RefreshValveCategoryList();
@@ -369,18 +369,20 @@ namespace ValveGetter.UI
         private void BtnSelectInputParameter_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new ParameterSelectorDialog(_doc, "Input");
-            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedParameterName))
+            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedParameter.ParameterName))
             {
-                txtInputParameter.Text = dialog.SelectedParameterName;
+                txtInputParameter.Text = dialog.SelectedParameter.ParameterName;
+                _settings.InputParameter = dialog.SelectedParameter;
             }
         }
 
         private void BtnSelectOutputParameter_Click(object sender, RoutedEventArgs e)
         {
             var dialog = new ParameterSelectorDialog(_doc, "Output");
-            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedParameterName))
+            if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedParameter.ParameterName))
             {
-                txtOutputParameter.Text = dialog.SelectedParameterName;
+                txtOutputParameter.Text = dialog.SelectedParameter.ParameterName;
+                _settings.OutputParameter = dialog.SelectedParameter;
             }
         }
 
@@ -484,13 +486,18 @@ namespace ValveGetter.UI
 
             // Parameters
             _settings.WriteToParameters = chkWriteToParameters.IsChecked == true;
-            _settings.InputParameterName = txtInputParameter.Text;
-            _settings.OutputParameterName = txtOutputParameter.Text;
 
-            // Validate categories
+            // Validate valve categories
             if (_settings.ValveCategoryFilters.Count == 0)
             {
                 MessageBox.Show("Please add at least one valve category.", "No Categories",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return false;
+            }
+            // Validate mep categories
+            if (_settings.MEPCategoryFilters.Count == 0)
+            {
+                MessageBox.Show("Please add at least one MEP category.", "No Categories",
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return false;
             }

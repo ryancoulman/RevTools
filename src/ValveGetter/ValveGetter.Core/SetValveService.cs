@@ -16,21 +16,22 @@ namespace ValveGetter.Core
         {
             if (results == null || results.Count == 0) return;
 
-            string paramName = settings.OutputParameterName;
+            // Get parameter getter factory method once 
+            var getParam = ParameterHandler.FactoryHandler(doc, settings.OutputParameter);
 
-            // Cache the "Comments" parameters for each valve first
+            // Cache the parameters for each valve first
             var paramCache = new Dictionary<int, Parameter>(valves.Count);
             foreach (var kvp in valves)
             {
                 var valve = kvp.Value;
                 if (valve == null) continue;
 
-                Parameter param = valve.LookupParameter(paramName);
-                if (param != null && !param.IsReadOnly)
-                {
-                    paramCache[kvp.Key] = param; // key is valveId
-                }
-                // ELSE SHOULD LOG MISSING PARAMETER
+                Parameter param = getParam(valve);
+                if (param == null) continue;
+                // Log $"Could not find {settings.OutputParameter.Name} parameter on valve with Id {valve.Name}. This has been skipped"
+                if (param.IsReadOnly) continue;
+                // Log $"Parameter {settings.OutputParameter.Name} on valve with Id {valve.Name} is read-only"
+                paramCache[kvp.Key] = param; // key is valveId
             }
 
             // Only start transaction if we have something to write

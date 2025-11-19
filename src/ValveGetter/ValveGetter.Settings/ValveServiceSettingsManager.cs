@@ -15,8 +15,8 @@ namespace ValveGetter.Settings
         public double TouchingDistMm { get; set; }
         public DebugLevel DebugMode { get; set; }
         public bool WriteToParameters { get; set; }
-        public string InputParameterName { get; set; }
-        public string OutputParameterName { get; set; }
+        public ParameterFilter InputParameter { get; set; }
+        public ParameterFilter OutputParameter { get; set; }
         public ValveCollectionScope CollectionScope { get; set; }
         public bool AllowSelectionOverrides { get; set; }
         public List<CategoryFilter> ValveCategoryFilters { get; set; }
@@ -43,8 +43,18 @@ namespace ValveGetter.Settings
                 TouchingDistMm = 5.0,
                 DebugMode = DebugLevel.Concise,
                 WriteToParameters = true,
-                InputParameterName = "Service Name",
-                OutputParameterName = "Comments",
+                InputParameterName = new ParameterFilter
+                {
+                    ParameterName = "Fabrication Service Name",
+                    ParameterBipId = -1140973L, 
+                    ParameterGUID = "",
+                },
+                OutputParameterName = new ParameterFilter
+                {
+                    ParameterName = "Comments",
+                    ParameterBipId = -1010106, 
+                    ParameterGUID = "", 
+                },
                 CollectionScope = ValveCollectionScope.EntireProject,
                 AllowSelectionOverrides = true,
                 ValveCategoryFilters =
@@ -240,9 +250,14 @@ namespace ValveGetter.Settings
     {
         public string CategoryName { get; set; }
         public long CategoryId { get; set; }
-
         public string NameCondition { get; set; }
         public FilterTarget ConditionTarget { get; set; }
+    }
+    public class ParameterFilter
+    {
+        public string ParameterName { get; set; }
+        public long ParameterBipId { get; set; }
+        public string ParameterGUID { get; set; }
     }
 
     public enum FilterTarget

@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Runtime;
 using System.Text;
 using ValveGetter.Settings;
 
@@ -23,16 +24,15 @@ namespace ValveGetter.Core
         private readonly double _proximityToleranceSq;
         private readonly double _touchingDistSq;
         private const double MM_TO_FEET = 1.0 / 304.8;
-        // --- input parameter type flags - used for faster checking ---
-        private readonly bool _isServiceName;
-        private readonly bool _isServiceAbbreviation;
         // --- store MEP element lookup to avoid storing for each mep connector --- 
         private readonly Element[] _mepElements;
         private readonly int[] _mepElementIds;
+        // --- delegate methods ---
+        private readonly Func<Element, Parameter> _getServiceParam;
 
         StringBuilder _debugtext = new StringBuilder();
 
-        public ValveServiceExtractorInternal(Document doc, ValveServiceSettings settings)
+        public ValveServiceExtractorInternal(Document doc, ValveServiceSettings settings, Element[] mepElements)
         {
             _doc = doc;
             _settings = settings;
@@ -41,15 +41,11 @@ namespace ValveGetter.Core
             _touchingDistSq = (settings.TouchingDistMm * MM_TO_FEET) * (settings.TouchingDistMm * MM_TO_FEET);
 
             // Pre-cache MEP fabrication elements and ids 
-            Stopwatch sw = Stopwatch.StartNew();
-            _mepElements = GetMEPFabricationElements();
-            sw.Stop();
-            TaskDialog.Show("timeywimey", $"Took {sw.ElapsedMilliseconds} ms to collect {_mepElements.Length} mep elems");
+            _mepElements = mepElements;
             _mepElementIds = Array.ConvertAll(_mepElements, e => e.Id.IntegerValue);
 
-            // If input paramater is also a property we can optimise checks
-            _isServiceName = _settings.InputParameterName == "Service Name" || _settings.InputParameterName == "ServiceName";
-            _isServiceAbbreviation = _settings.InputParameterName == "Service Abbreviation" || _settings.InputParameterName == "ServiceAbbreviation";
+            // Determine input parameter type for faster access
+            _getServiceParam = ParameterHandler.FactoryHandler(_doc, _settings.InputParameter);
         }
 
         public List<ValveResult> Process(Dictionary<int, Element> valves)
@@ -82,74 +78,6 @@ namespace ValveGetter.Core
         }
 
 
-        private Element[] GetMEPFabricationElements()
-        {
-            if (_settings.MEPCategoryFilters == null || !_settings.MEPCategoryFilters.Any())
-            {
-                // Raise exception 
-                return Array.Empty<Element>();
-            }
-
-            var fabBics = new List<BuiltInCategory>();
-            var standardBics = new List<BuiltInCategory>();
-
-            foreach (var filter in _settings.MEPCategoryFilters)
-            {
-                var bic = Bicywicy.GetBuiltInCategory(filter.CategoryId) ?? throw new ArgumentNullException(nameof(filter.CategoryName));
-                if (IsFabricationCategory(bic))
-                    fabBics.Add(bic);
-                else
-                    standardBics.Add(bic);
-            }
-
-            // Combine both filters into one collector using LogicalOrFilter
-
-            // Build a single combined filter
-            if (fabBics.Any() && standardBics.Any())
-            {
-                List<Element> combinedResults = [];
-                // Need both fabrication parts AND standard MEP elements
-                var fabParts = new FilteredElementCollector(_doc)
-                    .WhereElementIsNotElementType()
-                    .WherePasses(new ElementMulticategoryFilter(fabBics))
-                    .OfClass(typeof(FabricationPart))
-                    .Cast<FabricationPart>()
-                    .ToList();
-
-                var standardElements = new FilteredElementCollector(_doc)
-                    .WhereElementIsNotElementType()
-                    .WherePasses(new ElementMulticategoryFilter(standardBics))
-                    .OfClass(typeof(MEPCurve))
-                    .Cast<MEPCurve>()
-                    .ToList();
-
-                combinedResults.AddRange(fabParts);
-                combinedResults.AddRange(standardElements);
-                return combinedResults.ToArray();
-            }
-            else if (fabBics.Any())
-            {
-                // Only fabrication parts
-                return new FilteredElementCollector(_doc)
-                    .WhereElementIsNotElementType()
-                    .WherePasses(new ElementMulticategoryFilter(fabBics))
-                    .OfClass(typeof(FabricationPart))
-                    .Cast<FabricationPart>()
-                    .ToArray();
-            }
-            else if (standardBics.Any())
-            {
-                // Only standard MEP elements
-                return new FilteredElementCollector(_doc)
-                    .WhereElementIsNotElementType()
-                    .WherePasses(new ElementMulticategoryFilter(standardBics))
-                    .OfClass(typeof(MEPCurve))
-                    .Cast<MEPCurve>()
-                    .ToArray();
-            }
-
-            return Array.Empty<Element>();
-        }
 
         /// <summary>
         /// Returns service of MEP element in priority order
@@ -175,7 +103,7 @@ namespace ValveGetter.Core
                 }
             }
 
-            Parameter param = element.LookupParameter(_settings.InputParameterName);
+            Parameter param = _getServiceParam(element);
             if (param?.HasValue == true)
             {
                 string value = param.AsValueString() ?? param.AsString();
@@ -197,8 +125,8 @@ namespace ValveGetter.Core
                     return fabPart.ConnectorManager;
 
                 // For Valves etc 
-                if (element is FamilyInstance fi && fi.MEPModel != null)
-                    return fi.MEPModel.ConnectorManager;
+                if (element is FamilyInstance fi)
+                    return fi?.MEPModel.ConnectorManager;
 
                 // For standard MEP elements
                 if (element is MEPCurve mepCurve)
@@ -806,17 +734,6 @@ namespace ValveGetter.Core
             return [xyz.X, xyz.Y, xyz.Z];
         }
 
-        /// <summary>
-        /// Checks if a BuiltInCategory is a fabrication category
-        /// </summary>
-        private static bool IsFabricationCategory(BuiltInCategory bic)
-        {
-            return bic == BuiltInCategory.OST_FabricationPipework ||
-                bic == BuiltInCategory.OST_FabricationDuctwork ||
-                bic == BuiltInCategory.OST_FabricationContainment ||
-                bic == BuiltInCategory.OST_FabricationHangers;
-        }
-
         private static XYZ ToXYZ(double[] arr)
         {
             return new XYZ(arr[0], arr[1], arr[2]);
@@ -1042,4 +959,79 @@ namespace ValveGetter.Core
         public List<ValveConnectorData> Connectors { get; set; }
     }
 
+
+    internal class FabricationPropertyFactory
+    {
+        // Static map reused across calls to avoid re-allocating the dictionary each time.
+        private static readonly Dictionary<string, Func<FabricationPart, string>> s_fabricationPropertyMap =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                { "Fabrication Service Name", fp => fp.ServiceName },
+                { "Service Name", fp => fp.ServiceName },
+                { "ServiceName", fp => fp.ServiceName },
+                { "Fabrication Service Abbreviation", fp => fp.ServiceAbbreviation },
+                { "Service Abbreviation", fp => fp.ServiceAbbreviation },
+                { "ServiceAbbreviation", fp => fp.ServiceAbbreviation }
+            };
+
+        /// <summary>
+        /// Create a fast accessor for the requested parameter. Optimised for many repeated calls:
+        /// - If a fabrication property is known, returns a delegated that does a single type-check and direct property read.
+        /// - Otherwise precomputes best access strategy (BuiltInParameter / GUID / name) and returns a small hot delegate.
+        /// </summary>
+        internal static Func<FabricationPart, string> GetProperty(
+            Document doc,
+            ParameterFilter parameterFilter,
+            Element sampleElem)
+        {
+            string paramName = parameterFilter.ParameterName;
+
+            if (string.IsNullOrEmpty(paramName))
+                // Throw error message
+                return element => null;
+
+            // Check if parameter maps to known fabrication property
+            if (!s_fabricationPropertyMap.ContainsKey(parameterFilter.ParameterName))
+                return element => null;
+
+            if (s_fabricationPropertyMap.TryGetValue(paramName, out var fabAccessor))
+            {
+                // Dummy check to ensure that the fabpart has this property 
+                bool hasProperty = TryGetMepProperty(sampleElem, fabAccessor);
+                if (!hasProperty) return element => null;
+
+                return fabPart => fabAccessor(fabPart);
+            }
+            // Final catch all (should not reach here)
+            return element => null;
+        }
+
+        private static bool TryGetMepProperty(
+            Element sampleElem,
+            Func<FabricationPart, string> fabAccessor)
+        {
+            if (sampleElem is FabricationPart fabPart)
+            {
+                try
+                {
+                    string propertyValue = fabAccessor(fabPart);
+                    return !string.IsNullOrEmpty(propertyValue);
+                }
+                catch
+                {
+                    // Property access failed
+                    return false;
+                }
+            }
+            // Not a FabricationPart
+            return false;
+        }
+
+    }
+
+
+
+
 }
+
+

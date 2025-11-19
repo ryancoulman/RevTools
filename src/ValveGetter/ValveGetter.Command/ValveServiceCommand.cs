@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime;
+using System.Runtime.InteropServices.WindowsRuntime;
 using System.Text;
 using ValveGetter.Core;
 using ValveGetter.Settings;
@@ -176,6 +177,7 @@ namespace ValveGetter.Command
         Default,
         Advanced
     }
+
 
 }
 
