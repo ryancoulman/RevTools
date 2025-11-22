@@ -23,7 +23,7 @@ namespace ValveGetter.Core
 
             foreach (var filter in settings.MEPCategoryFilters)
             {
-                var bic = Bicywicy.GetBuiltInCategory(filter.CategoryId) ?? throw new ArgumentNullException(nameof(filter.CategoryName));
+                var bic = BuiltInEnumHandler.GetBuiltInEnum<BuiltInCategory>(filter.CategoryId) ?? throw new ArgumentNullException(nameof(filter.CategoryName));
                 if (IsFabricationCategory(bic))
                     fabBics.Add(bic);
                 else

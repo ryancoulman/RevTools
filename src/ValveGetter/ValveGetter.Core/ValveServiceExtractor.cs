@@ -10,6 +10,7 @@ using System.Linq;
 using System.Runtime;
 using System.Xml.Linq;
 using ValveGetter.Settings;
+using RevitAPIWrapper;
 
 namespace ValveGetter.Core
 {
@@ -32,16 +33,10 @@ namespace ValveGetter.Core
             Document doc = uidoc.Document;
 
             // Get Valves
-            Stopwatch swCollect = Stopwatch.StartNew();
             Dictionary<int, Element> valves = FilteredValveCollector.GetValves(uidoc, doc, settings);
-            swCollect.Stop();
-            TaskDialog.Show("timeywimey", $"Took {swCollect.ElapsedMilliseconds} ms to collect {valves.Count} valves");
 
             // Get MEP Elements 
-            Stopwatch swMEP = Stopwatch.StartNew();
             Element[] mepElements = FilteredMepCollector.GetMepElements(doc, settings);
-            swMEP.Stop();
-            TaskDialog.Show("timeywimey", $"Took {swMEP.ElapsedMilliseconds} ms to collect {mepElements.Length} MEP elements");
 
             // Run Extractor 
             var extractor = new ValveServiceExtractorInternal(doc, settings, mepElements);
@@ -62,11 +57,20 @@ namespace ValveGetter.Core
         public int ValveId { get; set; }
         public string ValveName { get; set; }
         public string Service { get; set; }
-        public string Method { get; set; }
+        public ConnectionMethod Method { get; set; }
         public double DistanceMm { get; set; }
         public int SourceElementId { get; set; } // Id of connected MEP element 
         public string ValveConnectorLocation { get; set; }
         public string MEPConnectorLocation { get; set; }
+    }
+
+    public enum ConnectionMethod
+    {
+        Nearest,
+        Intersecting,
+        Connected,
+        NoConnectors,
+        NotFound
     }
 
 
@@ -138,18 +142,18 @@ namespace ValveGetter.Core
                 // Defensively capture non-nullable value to avoid closure issues
                 BuiltInParameter nonNullableBip = bip.Value;
                 // Return function with name based fallback logic
-                return element => element.get_Parameter(nonNullableBip) ?? element.LookupParameter(name);
+                return element => element.get_Parameter(nonNullableBip) ?? RevitApi.LookupParameter(element, name);
             }
             if (guid.HasValue)
             {
                 Guid nonNullableGuid = guid.Value;
-                return element => element.get_Parameter(nonNullableGuid) ?? element.LookupParameter(name);
+                return element => element.get_Parameter(nonNullableGuid) ?? RevitApi.LookupParameter(element, name);
             }
             if (!string.IsNullOrEmpty(name))
             {
                 // Warning message if both bip and guid are null/invalid. Tell user to update settings.
                 string nonEmptyOrNullableName = name;
-                return element => element.LookupParameter(nonEmptyOrNullableName);
+                return element => RevitApi.LookupParameter(element, nonEmptyOrNullableName);
             }
 
             throw new ArgumentException("ParameterFilter must have at least one identifier set.");

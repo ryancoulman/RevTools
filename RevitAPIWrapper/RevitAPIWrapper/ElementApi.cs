@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Text;
 using IRevitAPIWrapper;
@@ -7,12 +8,21 @@ using Autodesk.Revit.DB;
 
 namespace RevitAPIWrapper
 {
-    public partial class RevitApi : IElementApi
+    public static partial class RevitApi
     {
-        public ElementId GetElementId(Element e) => e.Id;
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ElementId GetElementId(Element e) => e.Id;
 
-        public Parameter LookupParameter(Element e, string paramName) => e.LookupParameter(paramName);
-        public string LookupParameterAsString(Element e, string paramName)
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static long GetElementIdAsValue(Element e) =>
+#if REVIT2024_OR_GREATER
+            e.Id.Value;
+#else
+            e.Id.IntegerValue;
+#endif
+
+        public static Parameter LookupParameter(Element e, string paramName) => e.LookupParameter(paramName);
+        public static string LookupParameterAsString(Element e, string paramName)
         {
             Parameter param = LookupParameter(e, paramName);
             if (param?.HasValue != true)
@@ -21,11 +31,11 @@ namespace RevitAPIWrapper
             return !string.IsNullOrEmpty(value) ? value : null;
         }
 
-        public FilteredElementCollector FilteredElemCollectorOfClass(Document doc, Type classType) => 
+        public static FilteredElementCollector FilteredElemCollectorOfClass(Document doc, Type classType) => 
             new FilteredElementCollector(doc).OfClass(classType).WhereElementIsNotElementType();
-        public FilteredElementCollector FilteredElemCollectorOfClass(Document doc, ElementId viewId, Type classType) => 
+        public static FilteredElementCollector FilteredElemCollectorOfClass(Document doc, ElementId viewId, Type classType) => 
             new FilteredElementCollector(doc, viewId).OfClass(classType).WhereElementIsNotElementType();
-        public FilteredElementCollector FilteredElemCollectorOfClassWherePasses(Document doc, Type classType, List<ElementId> categoryIds) =>
+        public static FilteredElementCollector FilteredElemCollectorOfClassWherePasses(Document doc, Type classType, List<ElementId> categoryIds) =>
             new FilteredElementCollector(doc).OfClass(classType)
             .WhereElementIsNotElementType()
             .WherePasses(new ElementMulticategoryFilter(categoryIds));

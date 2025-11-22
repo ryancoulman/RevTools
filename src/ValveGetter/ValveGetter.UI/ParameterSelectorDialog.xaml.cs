@@ -1,9 +1,10 @@
-﻿using System;
+﻿using Autodesk.Revit.DB;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
-using Autodesk.Revit.DB;
 using ValveGetter.Settings;
 
 namespace ValveGetter.UI
@@ -11,36 +12,41 @@ namespace ValveGetter.UI
     public partial class ParameterSelectorDialog : Window
     {
         private readonly Document _doc;
-        private readonly string _mode; // "Input" or "Output"
         private List<ParameterItem> _allParameters;
 
         public ParameterFilter SelectedParameter { get; private set; }
 
-        public ParameterSelectorDialog(Document doc, string mode = "Output")
+        public ParameterSelectorDialog(Document doc, ParamSelectorMode mode)
         {
             _doc = doc;
-            _mode = mode;
             InitializeComponent();
 
             // Update title based on mode
-            this.Title = _mode == "Input"
+            this.Title = mode == ParamSelectorMode.MepServiceInput
                 ? "Select MEP Service Parameter (Input)"
                 : "Select Valve Parameter (Output)";
 
-            LoadParameters();
+            LoadParameters(mode);
         }
 
-        private void LoadParameters()
+        private void LoadParameters(ParamSelectorMode mode)
         {
             _allParameters = new List<ParameterItem>();
 
-            if (_mode == "Input")
+            try
             {
-                LoadMEPFabricationParameters();
+                if (mode == ParamSelectorMode.MepServiceInput)
+                {
+                    LoadMEPFabricationParameters();
+                }
+                else // Output
+                {
+                    LoadValveParameters();
+                }
             }
-            else // Output
+            catch (Exception ex)
             {
-                LoadValveParameters();
+                MessageBox.Show($"Error loading parameters: {ex.Message}", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
             }
 
             RefreshParameterList();
@@ -65,6 +71,7 @@ namespace ValveGetter.UI
                         ParameterBipId = (long)bip,
                         ParameterGUID = "",
                         IsCommon = isCommon,
+                        Category = "Common Parameters",
                     });
                 }
                 catch { }
@@ -85,7 +92,8 @@ namespace ValveGetter.UI
                 }
             }
 
-            throw new ArgumentNullException("No sample elements found");
+            MessageBox.Show("No sample element found for the specified categories.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            return null;
         }
 
         private void AddInstanceParametersToList(Element sampleElem, List<BuiltInParameter> commonBips = null, bool allowOnlyWritableParams = true)
@@ -110,7 +118,7 @@ namespace ValveGetter.UI
                                 ParameterBipId = (long)builtInParam,
                                 ParameterGUID = "",
                                 IsCommon = false,
-                                Category = "Fabrication Part Parameters",
+                                Category = "Parameters",
                             });
                         }
                         else if (param.IsShared)
@@ -120,9 +128,9 @@ namespace ValveGetter.UI
                             {
                                 ParameterName = definition.Name,
                                 ParameterBipId = 0L,
-                                ParameterGUID = param.GUID.ToString(),
+                                ParameterGUID = param?.GUID.ToString(),
                                 IsCommon = false,
-                                Category = "Fabrication Part Parameters",
+                                Category = "Parameters",
                             });
                         }
                     }
@@ -332,396 +340,246 @@ namespace ValveGetter.UI
 
         }
     }
+
+    public enum ParamSelectorMode
+    {
+        MepServiceInput,
+        ValveOutput
+    }
 }
 
 
-
-//// OLD 
-
-
-
-namespace ValveGetter.UI
+namespace RevitPlugin.Parameters
 {
-    public partial class ParameterSelectorDialogw : Window
+    public class ParameterInfo
     {
-        private readonly Document _doc;
-        private readonly string _mode; // "Input" or "Output"
-        private List<ParameterItem> _allParameters;
+        public string ParameterName { get; set; }
+        public long ParameterBipId { get; set; }
+        public string ParameterGUID { get; set; }
+        public bool IsCommon { get; set; }
+        public int CategoryCount { get; set; } // How many categories have this param
 
-        public string SelectedParameterName { get; private set; }
-
-        public ParameterSelectorDialog(Document doc, string mode = "Output")
+        public ParameterInfo(string name, long bipId, string guid, bool isCommon, int catCount)
         {
-            _doc = doc;
-            _mode = mode;
-            InitializeComponent();
-
-            // Update title based on mode
-            this.Title = _mode == "Input"
-                ? "Select MEP Service Parameter (Input)"
-                : "Select Valve Parameter (Output)";
-
-            LoadParameters();
+            ParameterName = name;
+            ParameterBipId = bipId;
+            ParameterGUID = guid;
+            IsCommon = isCommon;
+            CategoryCount = catCount;
         }
+    }
 
-        private void LoadParameters()
+    public static class CategoryParameterResolver
+    {
+        public static List<ParameterInfo> GetParametersForCategories(
+            Document doc,
+            ICollection<BuiltInCategory> selectedCategories)
         {
-            _allParameters = new List<ParameterItem>();
+            if (selectedCategories == null || !selectedCategories.Any())
+                return new List<ParameterInfo>();
 
-            if (_mode == "Input")
-            {
-                LoadMEPFabricationParameters();
-            }
-            else // Output
-            {
-                LoadValveParameters();
-            }
+            var categoryIds = selectedCategories
+                .Select(bic => new ElementId(bic))
+                .ToList();
 
-            RefreshParameterList();
-        }
+            // Get common filterable parameters
+            var commonParams = GetCommonFilterableParameters(doc, categoryIds);
 
-        private void LoadMEPFabricationParameters()
-        {
-            // Common service-related properties/parameters for MEP Fabrication Parts
-            var commonServiceParams = new[]
-            {
-                "Fabrication Service",
-                "Fabrication Service Name",
-                "Fabrication Service Abbreviation",
-                "Service",
-                "Service Name",
-                "Service Abbreviation"
-            };
+            // Get all parameters across categories for non-common ones
+            var allParams = GetAllParametersAcrossCategories(doc, categoryIds);
 
-            // Add common service parameters first
-            foreach (var paramName in commonServiceParams)
+            // Merge results
+            var results = new Dictionary<string, ParameterInfo>();
+
+            // Add common params first
+            foreach (var param in commonParams)
             {
-                _allParameters.Add(new ParameterItem
+                var key = GetParameterKey(param.bipId, param.guid);
+                if (!results.ContainsKey(key))
                 {
-                    Name = paramName,
-                    IsCommon = true,
-                    Category = "Common Service Parameters",
-                    IsProperty = paramName == "ServiceName" || paramName == "ServiceAbbreviation"
-                });
-            }
-
-            // Get sample FabricationPart to check available parameters
-            try
-            {
-                var sampleFabPart = new FilteredElementCollector(_doc)
-                    .OfClass(typeof(FabricationPart))
-                    .WhereElementIsNotElementType()
-                    .Cast<FabricationPart>()
-                    .FirstOrDefault(f => f.Category?.Name == "MEP Fabrication Pipework");
-
-                if (sampleFabPart != null)
-                {
-                    var instanceParams = new HashSet<string>();
-
-                    // Get instance parameters
-                    foreach (Parameter param in sampleFabPart.Parameters)
-                    {
-                        if (IsReadableTextParameter(param))
-                        {
-                            string paramName = param.Definition.Name;
-                            if (!commonServiceParams.Contains(paramName))
-                            {
-                                instanceParams.Add(paramName);
-                            }
-                        }
-                    }
-
-                    // Add instance parameters (sorted)
-                    foreach (var paramName in instanceParams.OrderBy(p => p))
-                    {
-                        _allParameters.Add(new ParameterItem
-                        {
-                            Name = paramName,
-                            IsCommon = false,
-                            Category = "Fabrication Part Parameters",
-                            IsProperty = false
-                        });
-                    }
-
-                    // Get type parameters
-                    var fabPartType = _doc.GetElement(sampleFabPart.GetTypeId());
-                    if (fabPartType != null)
-                    {
-                        foreach (Parameter param in fabPartType.Parameters)
-                        {
-                            if (IsReadableTextParameter(param))
-                            {
-                                string paramName = param.Definition.Name;
-                                if (!commonServiceParams.Contains(paramName) && !instanceParams.Contains(paramName))
-                                {
-                                    _allParameters.Add(new ParameterItem
-                                    {
-                                        Name = paramName,
-                                        IsCommon = false,
-                                        Category = "Fabrication Part Type Parameters",
-                                        IsProperty = false
-                                    });
-                                }
-                            }
-                        }
-                    }
+                    results[key] = new ParameterInfo(
+                        param.name,
+                        param.bipId,
+                        param.guid,
+                        true,
+                        categoryIds.Count
+                    );
                 }
             }
-            catch
+
+            // Add non-common params
+            foreach (var param in allParams)
             {
-                // If we can't find a sample element, just show common parameters
+                var key = GetParameterKey(param.bipId, param.guid);
+                if (!results.ContainsKey(key))
+                {
+                    results[key] = new ParameterInfo(
+                        param.name,
+                        param.bipId,
+                        param.guid,
+                        false,
+                        param.categoryCount
+                    );
+                }
             }
+
+            return results.Values
+                .OrderByDescending(p => p.IsCommon)
+                .ThenByDescending(p => p.CategoryCount)
+                .ThenBy(p => p.ParameterName)
+                .ToList();
         }
 
-        private void LoadValveParameters()
+        private static List<(string name, long bipId, string guid)> GetCommonFilterableParameters(
+            Document doc,
+            List<ElementId> categoryIds)
         {
-            // Common writable text parameters (high priority)
-            var commonParams = new[]
-            {
-                "Comments",
-                "Mark",
-                "Description",
-                "Valve Service",
-                "Service",
-                "System Name",
-                "System Type",
-                "Type Comments"
-            };
+            var results = new List<(string, long, string)>();
 
-            // Add common parameters first
-            foreach (var paramName in commonParams)
-            {
-                _allParameters.Add(new ParameterItem
-                {
-                    Name = paramName,
-                    IsCommon = true,
-                    Category = "Common",
-                    IsProperty = false
-                });
-            }
-
-            // Get sample valve element to check available parameters
             try
             {
-                var sampleValve = new FilteredElementCollector(_doc)
-                    .OfCategory(BuiltInCategory.OST_PipeAccessory)
-                    .WhereElementIsNotElementType()
-                    .FirstElement();
+                var filterableParams = ParameterFilterUtilities
+                    .GetFilterableParametersInCommon(doc, categoryIds);
 
-                if (sampleValve != null)
+                var parameterBindings = doc.ParameterBindings;
+
+                foreach (var paramId in filterableParams)
                 {
-                    var instanceParams = new HashSet<string>();
 
-                    // Get instance parameters
-                    foreach (Parameter param in sampleValve.Parameters)
+                    // Case 1 — BuiltInParameter (no ParameterElement exists in the document)
+                    if (Enum.IsDefined(typeof(BuiltInParameter), paramId.IntegerValue))
                     {
-                        if (IsWritableTextParameter(param))
+                        var bip = (BuiltInParameter)paramId.IntegerValue;
+
+                        // Skip INVALID
+                        if (bip == BuiltInParameter.INVALID)
+                            continue;
+
+                        string name = LabelUtils.GetLabelFor(bip);
+                        results.Add((name, (long)bip, ""));
+                        continue;
+                    }
+
+                    // Case 2 — ParameterElement (Shared or Project parameter)
+                    if (doc.GetElement(paramId) is ParameterElement paramElem)
+                    {
+                        var def = paramElem.GetDefinition();
+
+                        var binding = parameterBindings.get_Item(def);
+                        if (binding != null && binding is TypeBinding) continue;
+
+                        string name = def?.Name;
+                        if (string.IsNullOrEmpty(name)) continue;
+
+                        // Shared parameter
+                        if (paramElem is SharedParameterElement sharedParemElem)
                         {
-                            string paramName = param.Definition.Name;
-                            if (!commonParams.Contains(paramName))
-                            {
-                                instanceParams.Add(paramName);
-                            }
+                            results.Add((name, 0, sharedParemElem.GuidValue.ToString()));
                         }
-                    }
-
-                    // Add instance parameters (sorted)
-                    foreach (var paramName in instanceParams.OrderBy(p => p))
-                    {
-                        _allParameters.Add(new ParameterItem
+                        // Project parameter (no GUID)
+                        else
                         {
-                            Name = paramName,
-                            IsCommon = false,
-                            Category = "Instance Parameters",
-                            IsProperty = false
-                        });
-                    }
-
-                    // Get type parameters
-                    if (sampleValve is FamilyInstance fi && fi.Symbol != null)
-                    {
-                        foreach (Parameter param in fi.Symbol.Parameters)
-                        {
-                            if (IsWritableTextParameter(param))
-                            {
-                                string paramName = param.Definition.Name;
-                                if (!commonParams.Contains(paramName) && !instanceParams.Contains(paramName))
-                                {
-                                    _allParameters.Add(new ParameterItem
-                                    {
-                                        Name = paramName,
-                                        IsCommon = false,
-                                        Category = "Type Parameters",
-                                        IsProperty = false
-                                    });
-                                }
-                            }
+                            results.Add((name, 0, ""));
                         }
                     }
                 }
             }
-            catch
+            catch (Exception)
             {
-                // If we can't find a sample element, just show common parameters
+                // Silently handle if method fails
             }
+
+            return results;
         }
 
-        private bool IsWritableTextParameter(Parameter param)
+        private static List<(string name, long bipId, string guid, int categoryCount)>
+            GetAllParametersAcrossCategories(Document doc, List<ElementId> categoryIds)
         {
-            try
+            var parameterOccurrences = new Dictionary<string, (string name, long bipId, string guid, int count)>();
+
+            foreach (var categoryId in categoryIds)
             {
-                if (param.IsReadOnly)
-                    return false;
+                var category = Category.GetCategory(doc, categoryId);
+                if (category == null) continue;
 
-                // Only string parameters
-                if (param.StorageType != StorageType.String)
-                    return false;
+                var paramSet = GetCategoryParameters(doc, category);
 
-                // Exclude system parameters that shouldn't be written to
-                if (param.Definition is InternalDefinition internalDef)
+                foreach (var param in paramSet)
                 {
-                    // Allow built-in parameters that are commonly used
-                    var builtInParam = internalDef.BuiltInParameter;
-                    if (builtInParam != BuiltInParameter.INVALID &&
-                        builtInParam != BuiltInParameter.ALL_MODEL_MARK &&
-                        builtInParam != BuiltInParameter.ALL_MODEL_DESCRIPTION &&
-                        builtInParam != BuiltInParameter.ALL_MODEL_INSTANCE_COMMENTS &&
-                        builtInParam != BuiltInParameter.ALL_MODEL_TYPE_COMMENTS)
+                    var key = GetParameterKey(param.bipId, param.guid);
+
+                    if (parameterOccurrences.ContainsKey(key))
                     {
-                        return false;
+                        var existing = parameterOccurrences[key];
+                        parameterOccurrences[key] = (existing.name, existing.bipId, existing.guid, existing.count + 1);
+                    }
+                    else
+                    {
+                        parameterOccurrences[key] = (param.name, param.bipId, param.guid, 1);
                     }
                 }
+            }
 
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
+            return parameterOccurrences.Values
+                .Select(p => (p.name, p.bipId, p.guid, p.count))
+                .ToList();
         }
 
-        private bool IsReadableTextParameter(Parameter param)
+        private static HashSet<(string name, long bipId, string guid)> GetCategoryParameters(
+            Document doc,
+            Category category)
         {
-            try
+            var parameters = new HashSet<(string, long, string)>();
+
+            // Get instance binding parameters
+            var bindingMap = doc.ParameterBindings;
+            var iterator = bindingMap.ForwardIterator();
+
+            while (iterator.MoveNext())
             {
-                // For input (reading), we don't care if it's read-only
-                // We just need string parameters
-                if (param.StorageType != StorageType.String)
-                    return false;
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private void RefreshParameterList()
-        {
-            lstParameters.Items.Clear();
-
-            var filteredParams = string.IsNullOrWhiteSpace(txtSearch.Text)
-                ? _allParameters
-                : _allParameters.Where(p => p.Name.IndexOf(txtSearch.Text, StringComparison.OrdinalIgnoreCase) >= 0).ToList();
-
-            // Group by category
-            var grouped = filteredParams.GroupBy(p => p.Category).OrderBy(g =>
-                g.Key.Contains("Common") ? 0 : 1);
-
-            foreach (var group in grouped)
-            {
-                // Add category header
-                var header = new ListBoxItem
+                if (iterator.Key is InternalDefinition definition && iterator.Current is ElementBinding binding)
                 {
-                    Content = $"── {group.Key} ──",
-                    IsEnabled = false,
-                    FontWeight = System.Windows.FontWeights.Bold,
-                    Foreground = System.Windows.Media.Brushes.Gray
-                };
-                lstParameters.Items.Add(header);
-
-                // Add parameters
-                foreach (var param in group)
-                {
-                    var displayName = param.IsProperty
-                        ? $"{param.Name} (Property)"
-                        : param.Name;
-
-                    var item = new ListBoxItem
+                    if (binding.Categories.Contains(category))
                     {
-                        Content = displayName,
-                        Tag = param,
-                        FontWeight = param.IsCommon ? System.Windows.FontWeights.SemiBold : System.Windows.FontWeights.Normal
-                    };
-                    lstParameters.Items.Add(item);
+                        var bipId = definition.BuiltInParameter != BuiltInParameter.INVALID
+                            ? (long)definition.BuiltInParameter
+                            : 0;
+
+                        //var guid = definition is SharedParameterElement sharedDef
+                        //    ? sharedDef.GuidValue.ToString()
+                        //    : "";
+
+                        //parameters.Add((definition.Name, bipId, guid));
+                    }
                 }
             }
 
-            // Auto-select first selectable item if nothing selected
-            if (lstParameters.SelectedItem == null)
+            // Add built-in parameters for the category
+            foreach (BuiltInParameter bip in Enum.GetValues(typeof(BuiltInParameter)))
             {
-                var firstSelectableItem = lstParameters.Items
-                    .Cast<ListBoxItem>()
-                    .FirstOrDefault(item => item.IsEnabled && item.Tag is ParameterItem);
+                if (bip == BuiltInParameter.INVALID) continue;
 
-                if (firstSelectableItem != null)
+                try
                 {
-                    lstParameters.SelectedItem = firstSelectableItem;
+                    var name = LabelUtils.GetLabelFor(bip);
+                    if (!string.IsNullOrEmpty(name))
+                    {
+                        parameters.Add((name, (long)bip, ""));
+                    }
+                }
+                catch
+                {
+                    // Parameter not applicable to this category
                 }
             }
+
+            return parameters;
         }
 
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
+        private static string GetParameterKey(long bipId, string guid)
         {
-            RefreshParameterList();
-        }
-
-        private void LstParameters_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            btnOk.IsEnabled = lstParameters.SelectedItem is ListBoxItem item &&
-                              item.IsEnabled &&
-                              item.Tag is ParameterItem;
-        }
-
-        private void LstParameters_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
-        {
-            if (lstParameters.SelectedItem is ListBoxItem item &&
-                item.IsEnabled &&
-                item.Tag is ParameterItem)
-            {
-                AcceptSelection();
-            }
-        }
-
-        private void BtnOk_Click(object sender, RoutedEventArgs e)
-        {
-            AcceptSelection();
-        }
-
-        private void AcceptSelection()
-        {
-            if (lstParameters.SelectedItem is ListBoxItem selectedItem &&
-                selectedItem.Tag is ParameterItem param)
-            {
-                SelectedParameterName = param.Name;
-                DialogResult = true;
-                Close();
-            }
-        }
-
-        private void BtnCancel_Click(object sender, RoutedEventArgs e)
-        {
-            DialogResult = false;
-            Close();
-        }
-
-        private class ParameterItem
-        {
-            public string Name { get; set; }
-            public bool IsCommon { get; set; }
-            public string Category { get; set; }
-            public bool IsProperty { get; set; } // True for FabricationPart properties like ServiceName
+            return bipId != -1 ? $"BIP_{bipId}" : $"GUID_{guid}";
         }
     }
 }
+

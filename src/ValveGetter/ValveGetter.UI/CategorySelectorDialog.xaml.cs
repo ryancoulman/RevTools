@@ -21,19 +21,18 @@ namespace ValveGetter.UI
         public CategorySelectorDialog(
             Document doc,
             List<CategoryFilter> existingFilters,
-            string mode = "valve",
+            CategorySelectorMode mode,
             CategoryFilter editFilter = null)
         {
             _doc = doc;
             _categories = _doc.Settings.Categories;
             _existingFilters = existingFilters;
-            _mode = mode.ToLower();
             _editingFilter = editFilter;
 
             InitializeComponent();
 
             // Update UI based on mode
-            if (_mode == "mep")
+            if (mode == CategorySelectorMode.Mep)
             {
                 this.Title = "Select MEP Category";
                 grpNameFilter.Visibility = System.Windows.Visibility.Collapsed;
@@ -46,7 +45,7 @@ namespace ValveGetter.UI
                 txtMEPWarning.Visibility = System.Windows.Visibility.Collapsed;
             }
 
-            PopulateCategories();
+            PopulateCategories(mode);
 
             if (_editingFilter != null)
             {
@@ -54,11 +53,11 @@ namespace ValveGetter.UI
             }
         }
 
-        private void PopulateCategories()
+        private void PopulateCategories(CategorySelectorMode mode)
         {
             var categoryList = new List<CategoryItem>();
 
-            if (_mode == "mep")
+            if (mode == CategorySelectorMode.Mep)
             {
                 PopulateMEPCategories(categoryList);
             }
@@ -258,5 +257,11 @@ namespace ValveGetter.UI
         }
 
 
+    }
+
+    public enum CategorySelectorMode
+    {
+        Valve,
+        Mep
     }
 }

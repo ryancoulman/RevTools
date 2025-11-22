@@ -88,19 +88,19 @@ namespace ValveGetter.Command
             {
                 switch (r.Method)
                 {
-                    case "connected":
+                    case ConnectionMethod.Connected:
                         connected++;
                         break;
-                    case "proximity_connector":
+                    case ConnectionMethod.Nearest:
                         proximityConn++;
                         break;
-                    case "proximity_centerline":
+                    case ConnectionMethod.Intersecting:
                         proximityCenter++;
                         break;
-                    case "no_connectors":
+                    case ConnectionMethod.NoConnectors:
                         noConnectors++;
                         break;
-                    case "not_found":
+                    case ConnectionMethod.NotFound:
                         notFound++;
                         notFoundIds.Add(r.ValveId.ToString());
                         break;
@@ -184,8 +184,8 @@ namespace ValveGetter.Command
 
 // To Do 
 // 1. Sort out the paramater selection. 
-//   a. Use bip not just random strings 
-//   b. Imlement one time check in backend to see if can use property not param
+//   a. Use bip not just random strings - DONE
+//   b. Imlement one time check in backend to see if can use property not param - DONE 
 //   c. There should be some dependency between the selected valve categoreies and filters and avaliable params. Much like with revit filters
 //   d. collect the elems that match the category filters and find union of common params 
 // 2. MVMM for UI 
@@ -197,5 +197,4 @@ namespace ValveGetter.Command
 
 
 
-// Replace the string connetector mode (ie 'proximity_cobnnector' with enums). same elsewhere (strings -> enums) 
 // Build a suitable method for testing wth pyrevit or other 

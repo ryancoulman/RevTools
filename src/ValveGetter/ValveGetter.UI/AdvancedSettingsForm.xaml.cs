@@ -27,6 +27,14 @@ namespace ValveGetter.UI
             PopulateUI();
         }
 
+        // Fix window size on load
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            this.MinWidth = this.ActualWidth;
+            this.MinHeight = this.ActualHeight;
+            this.MaxHeight = this.ActualHeight;
+        }
+
         private void LoadSettings()
         {
             try
@@ -306,7 +314,7 @@ namespace ValveGetter.UI
 
         private void BtnAddValveCategory_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new CategorySelectorDialog(_doc, _settings.ValveCategoryFilters, "valve");
+            var dialog = new CategorySelectorDialog(_doc, _settings.ValveCategoryFilters, CategorySelectorMode.Valve);
             if (dialog.ShowDialog() == true && dialog.SelectedFilter != null)
             {
                 _settings.ValveCategoryFilters.Add(dialog.SelectedFilter);
@@ -319,7 +327,7 @@ namespace ValveGetter.UI
             if (lstValveCategories.SelectedItem is ListBoxItem selectedItem &&
                 selectedItem.Tag is CategoryFilter filter)
             {
-                var dialog = new CategorySelectorDialog(_doc, _settings.ValveCategoryFilters, "valve", filter);
+                var dialog = new CategorySelectorDialog(_doc, _settings.ValveCategoryFilters, CategorySelectorMode.Valve, filter);
                 if (dialog.ShowDialog() == true && dialog.SelectedFilter != null)
                 {
                     int index = _settings.ValveCategoryFilters.IndexOf(filter);
@@ -346,7 +354,7 @@ namespace ValveGetter.UI
 
         private void BtnAddMEPCategory_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new CategorySelectorDialog(_doc, _settings.MEPCategoryFilters, "mep");
+            var dialog = new CategorySelectorDialog(_doc, _settings.MEPCategoryFilters, CategorySelectorMode.Mep);
             if (dialog.ShowDialog() == true && dialog.SelectedFilter != null)
             {
                 _settings.MEPCategoryFilters.Add(dialog.SelectedFilter);
@@ -368,7 +376,7 @@ namespace ValveGetter.UI
 
         private void BtnSelectInputParameter_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new ParameterSelectorDialog(_doc, "Input");
+            var dialog = new ParameterSelectorDialog(_doc, ParamSelectorMode.MepServiceInput);
             if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedParameter.ParameterName))
             {
                 txtInputParameter.Text = dialog.SelectedParameter.ParameterName;
@@ -378,7 +386,7 @@ namespace ValveGetter.UI
 
         private void BtnSelectOutputParameter_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new ParameterSelectorDialog(_doc, "Output");
+            var dialog = new ParameterSelectorDialog(_doc, ParamSelectorMode.ValveOutput);
             if (dialog.ShowDialog() == true && !string.IsNullOrEmpty(dialog.SelectedParameter.ParameterName))
             {
                 txtOutputParameter.Text = dialog.SelectedParameter.ParameterName;
@@ -504,5 +512,6 @@ namespace ValveGetter.UI
 
             return true;
         }
+
     }
 }

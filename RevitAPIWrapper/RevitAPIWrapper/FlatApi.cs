@@ -7,20 +7,20 @@ using IRevitAPIWrapper;
 
 namespace RevitAPIWrapper
 {
-    public partial class RevitApi : IConnectorsApi
+    public static partial class RevitApi
     {
-        public XYZ GetConnectorOrigin(Connector connector) => connector.Origin;
-        public bool IsPhysicalConnector(Connector connector) =>
+        public static XYZ GetConnectorOrigin(Connector connector) => connector.Origin;
+        public static bool IsPhysicalConnector(Connector connector) =>
             connector.ConnectorType == ConnectorType.End ||
             connector.ConnectorType == ConnectorType.Curve ||
             connector.ConnectorType == ConnectorType.Physical;
 
     }
 
-    public partial class RevitApi : IXYZApi
+    public static partial class RevitApi 
     {
-        public double GetX(XYZ point) => point.X;
-        public double GetY(XYZ point) => point.Y;
-        public double GetZ(XYZ point) => point.Z;
+        public static double GetX(XYZ point) => point.X;
+        public static double GetY(XYZ point) => point.Y;
+        public static double GetZ(XYZ point) => point.Z;
     }
 }

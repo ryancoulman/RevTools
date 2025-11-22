@@ -133,7 +133,7 @@ namespace ValveGetter.Core
                 {
                     try
                     {
-                        BuiltInCategory bic = Bicywicy.GetBuiltInCategory(filter.CategoryId) ?? throw new ArgumentNullException(nameof(filter.CategoryName));
+                        BuiltInCategory bic = BuiltInEnumHandler.GetBuiltInEnum<BuiltInCategory>(filter.CategoryId) ?? throw new ArgumentNullException(nameof(filter.CategoryName));
                         IEnumerable<Element> elements = new FilteredElementCollector(doc, view.Id)
                             .OfCategory(bic)
                             .WhereElementIsNotElementType().ToElements();
@@ -168,7 +168,7 @@ namespace ValveGetter.Core
             {
                 try
                 {
-                    BuiltInCategory bic = Bicywicy.GetBuiltInCategory(filter.CategoryId) ?? throw new ArgumentNullException(nameof(filter.CategoryName));
+                    BuiltInCategory bic = BuiltInEnumHandler.GetBuiltInEnum<BuiltInCategory>(filter.CategoryId) ?? throw new ArgumentNullException(nameof(filter.CategoryName));
                     IEnumerable<Element> elements = new FilteredElementCollector(doc)
                         .OfCategory(bic)
                         .WhereElementIsNotElementType().ToElements();

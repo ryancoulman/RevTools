@@ -43,13 +43,13 @@ namespace ValveGetter.Settings
                 TouchingDistMm = 5.0,
                 DebugMode = DebugLevel.Concise,
                 WriteToParameters = true,
-                InputParameterName = new ParameterFilter
+                InputParameter = new ParameterFilter
                 {
                     ParameterName = "Fabrication Service Name",
                     ParameterBipId = -1140973L, 
                     ParameterGUID = "",
                 },
-                OutputParameterName = new ParameterFilter
+                OutputParameter = new ParameterFilter
                 {
                     ParameterName = "Comments",
                     ParameterBipId = -1010106, 

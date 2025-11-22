@@ -8,8 +8,10 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using ValveGetter.Settings;
+using RevitAPIWrapper;
 
 namespace ValveGetter.Core
 {
@@ -29,6 +31,8 @@ namespace ValveGetter.Core
         private readonly int[] _mepElementIds;
         // --- delegate methods ---
         private readonly Func<Element, Parameter> _getServiceParam;
+        private readonly Func<Element, string> _getServiceProperty;
+        private readonly Func<Element, string> _getMepService;
 
         StringBuilder _debugtext = new StringBuilder();
 
@@ -42,10 +46,15 @@ namespace ValveGetter.Core
 
             // Pre-cache MEP fabrication elements and ids 
             _mepElements = mepElements;
+            if (_mepElements.Length == 0) throw new ArgumentException("No MEP Fabrication elements found in document.");
             _mepElementIds = Array.ConvertAll(_mepElements, e => e.Id.IntegerValue);
 
             // Determine input parameter type for faster access
             _getServiceParam = ParameterHandler.FactoryHandler(_doc, _settings.InputParameter);
+            var getServiceProperty = FabPropertyFactory.FactoryHandler(_settings.InputParameter.ParameterName, _mepElements[0]);
+            _getServiceProperty = getServiceProperty.Getter;
+            // Choose best method for fetching the mep service based on validity of property getter
+            _getMepService = getServiceProperty.IsValid ? GetServiceFromProperty : GetServiceFromParameter;
         }
 
         public List<ValveResult> Process(Dictionary<int, Element> valves)
@@ -58,51 +67,20 @@ namespace ValveGetter.Core
             if (_mepElements.Length == 0)
                 return new List<ValveResult>();
 
-
             // Build caches
-            Stopwatch sw = Stopwatch.StartNew();
             Dictionary<int, ValveCacheData> valveCache = BuildValveConnectorCache(valves);
-            sw.Stop();
-            TaskDialog.Show("timeywimey", $"Took {sw.ElapsedMilliseconds} ms to build valve connector cache for {valves.Count} valves");
 
             // Build K-d tree for fast spatial queries
             KdTree<double, MEPConnectorData> mepConnectorKdTree = BuildMEPConnectorKdTree();
 
             // Process
-            Stopwatch stopwatch = Stopwatch.StartNew();
-            var res = ProcessAllValves(valveCache, mepConnectorKdTree);
-            stopwatch.Stop();
-            TaskDialog.Show("timeywimey", $"Took {stopwatch.ElapsedMilliseconds} ms to process {valves.Count} valves");
-            return res;
+            return ProcessAllValves(valveCache, mepConnectorKdTree);
 
         }
 
 
-
-        /// <summary>
-        /// Returns service of MEP element in priority order
-        /// </summary>
-        private string GetServiceFromElement(Element element)
+        private string GetServiceFromParameter(Element element)
         {
-            if (_isServiceName)
-            {
-                // Direct property access for speed
-                if (element is FabricationPart fabPart)
-                {
-                    if (!string.IsNullOrEmpty(fabPart.ServiceName))
-                        return fabPart.ServiceName;
-                }
-            }
-            else if (_isServiceAbbreviation)
-            {
-                // Direct property access for speed
-                if (element is FabricationPart fabPart)
-                {
-                    if (!string.IsNullOrEmpty(fabPart.ServiceAbbreviation))
-                        return fabPart.ServiceAbbreviation;
-                }
-            }
-
             Parameter param = _getServiceParam(element);
             if (param?.HasValue == true)
             {
@@ -112,8 +90,19 @@ namespace ValveGetter.Core
             }
 
             // log no service or ensure later that method = no service 
-            _debugtext.AppendLine($"Element ID {element.Name} has no service found.");
+            _debugtext.AppendLine($"Element {element.Name} has no service found.");
             return null;
+        }
+
+        private string GetServiceFromProperty(Element element)
+        {
+            string service = _getServiceProperty(element);
+
+            if (!string.IsNullOrEmpty(service))
+                return service;
+
+            // Fallback to parameter if not fabrication part or property not found
+            return GetServiceFromParameter(element);
         }
 
         private ConnectorManager GetConnectorManager(Element element)
@@ -145,47 +134,11 @@ namespace ValveGetter.Core
         /// Build K-d tree for fast spatial queries of MEP connectors
         /// Reduces search complexity from O(N*M) to O(N*log(M))
         /// </summary>
-        private KdTree<double, MEPConnectorData> BuildMEPConnectorKdTreeee()
-        {
-            // K-d tree with 3 dimensions (X, Y, Z) using Euclidean distance metric
-            var tree = new KdTree<double, MEPConnectorData>(3, new DoubleMath());
-
-            for (int i = 0; i < _mepElements.Length; i++)
-            {
-                Element elem = _mepElements[i];
-                if (elem == null) continue;
-
-                ConnectorManager connMgr = GetConnectorManager(elem);
-                if (connMgr == null) continue;
-
-                foreach (Connector connector in connMgr.Connectors)
-                {
-                    try
-                    {
-                        if (connector.ConnectorType == ConnectorType.End ||
-                            connector.ConnectorType == ConnectorType.Physical)
-                        {
-                            // Convert to double array for K-d tree
-                            XYZ origin = connector.Origin;
-                            // Convert XYZ to double array for K-d tree
-                            tree.Add(ToDoubleArray(origin),
-                                new MEPConnectorData { ElementHash = i, Connector = connector });
-                        }
-                    }
-                    catch { }
-                }
-            }
-            return tree;
-        }
-
-        private KdTree<double, MEPConnectorData> BuildMEPConnectorKdTree2()
+        private KdTree<double, MEPConnectorData> BuildMEPConnectorKdTree()
         {
             var tree = new KdTree<double, MEPConnectorData>(3, new DoubleMath());
-
             // Pre-extract all points to avoid repeated Revit API calls during tree building
             var pointsToAdd = new List<(double[] point, MEPConnectorData data)>(_mepElements.Length*2); // most mep elems have 2 connectors
-
-            Stopwatch sw = Stopwatch.StartNew();
 
             for (int i = 0; i < _mepElements.Length; i++)
             {
@@ -213,158 +166,15 @@ namespace ValveGetter.Core
                 }
             }
 
-            sw.Stop();
-            TaskDialog.Show("timeywimey", $"Took {sw.ElapsedMilliseconds} ms to extract {_mepElements.Length} mep elems connectors for kd-tree");
-            _debugtext.AppendLine($"Extracted {pointsToAdd.Count} connectors from {_mepElements.Length} MEP elements.");
-
-            Stopwatch swBuild = Stopwatch.StartNew();
-            // Now build the tree without any Revit API calls
+            // Build the tree without any Revit API calls
             foreach (var (point, data) in pointsToAdd)
             {
                 tree.Add(point, data);
             }
-            swBuild.Stop();
-            TaskDialog.Show("timeywimey", $"Took {swBuild.ElapsedMilliseconds} ms to build kd-tree with {tree.Count} connectors");
-            _debugtext.AppendLine($"Kd-tree built with {tree.Count} connectors from {_mepElements.Length} MEP elements.");
 
             return tree;
         }
 
-        private KdTree<double, MEPConnectorData> BuildMEPConnectorKdTree()
-        {
-            var tree = new KdTree<double, MEPConnectorData>(3, new DoubleMath());
-            var pointsToAdd = new List<(double[] point, MEPConnectorData data)>(_mepElements.Length * 2);
-
-            Stopwatch swTotal = Stopwatch.StartNew();
-            Stopwatch swGetManager = new Stopwatch();
-            Stopwatch swIterateConnectors = new Stopwatch();
-            Stopwatch swGetConnectorType = new Stopwatch();
-            Stopwatch swGetOrigin = new Stopwatch();
-            Stopwatch swToDoubleArray = new Stopwatch();
-            Stopwatch swListAdd = new Stopwatch();
-            double swOriginElapsed = 0.0;
-            Dictionary<int, double> originTimes = new Dictionary<int, double>();
-
-            int managerCallCount = 0;
-            int connectorIterationCount = 0;
-            int typeCheckCount = 0;
-            int originGetCount = 0;
-            int nullManagerCount = 0;
-            int exceptionCount = 0;
-
-            for (int i = 0; i < _mepElements.Length; i++)
-            {
-                Element elem = _mepElements[i];
-                if (elem == null) continue;
-
-                swGetManager.Start();
-                ConnectorManager connMgr = GetConnectorManager(elem);
-                swGetManager.Stop();
-                managerCallCount++;
-
-                if (connMgr == null)
-                {
-                    nullManagerCount++;
-                    continue;
-                }
-
-                swIterateConnectors.Start();
-                ConnectorSet connectors = connMgr.Connectors;
-                swIterateConnectors.Stop();
-
-                foreach (Connector connector in connectors)
-                {
-                    connectorIterationCount++;
-                    try
-                    {
-                        swGetConnectorType.Start();
-                        ConnectorType connType = connector.ConnectorType;
-                        swGetConnectorType.Stop();
-                        typeCheckCount++;
-
-                        if (connType == ConnectorType.End || connType == ConnectorType.Physical)
-                        {
-                            swGetOrigin.Start();
-                            XYZ origin = connector.Origin;
-                            swGetOrigin.Stop();
-                            var elapsed = swGetOrigin.Elapsed.TotalMilliseconds;
-                            originTimes[_mepElementIds[i]] = elapsed;
-                            swOriginElapsed += elapsed;
-                            swGetOrigin.Reset();
-
-                            swOriginElapsed += elapsed;
-                            swGetOrigin.Reset();
-                            originGetCount++;
-
-                            swToDoubleArray.Start();
-                            double[] pointArray = ToDoubleArray(origin);
-                            swToDoubleArray.Stop();
-
-                            swListAdd.Start();
-                            pointsToAdd.Add((
-                                pointArray,
-                                new MEPConnectorData { ElementHash = i, Connector = connector }
-                            ));
-                            swListAdd.Stop();
-                        }
-                    }
-                    catch
-                    {
-                        exceptionCount++;
-                    }
-                }
-            }
-
-            swTotal.Stop();
-
-            var sb = new StringBuilder();
-            sb.AppendLine($"=== TIMING BREAKDOWN ===");
-            sb.AppendLine($"Total extraction time: {swTotal.ElapsedMilliseconds} ms");
-            sb.AppendLine($"");
-            sb.AppendLine($"GetConnectorManager: {swGetManager.ElapsedMilliseconds} ms ({managerCallCount} calls, avg {(managerCallCount > 0 ? swGetManager.ElapsedMilliseconds / (double)managerCallCount : 0):F2} ms/call)");
-            sb.AppendLine($"Null managers: {nullManagerCount}");
-            sb.AppendLine($"");
-            sb.AppendLine($"Get ConnectorSet: {swIterateConnectors.ElapsedMilliseconds} ms");
-            sb.AppendLine($"Get ConnectorType: {swGetConnectorType.ElapsedMilliseconds} ms ({typeCheckCount} checks, avg {(typeCheckCount > 0 ? swGetConnectorType.ElapsedMilliseconds / (double)typeCheckCount : 0):F2} ms/check)");
-            sb.AppendLine($"Get Origin: {swOriginElapsed} ms ({originGetCount} gets, avg {(originGetCount > 0 ? swOriginElapsed / (double)originGetCount : 0):F2} ms/get)");
-            sb.AppendLine($"ToDoubleArray: {swToDoubleArray.ElapsedMilliseconds} ms");
-            sb.AppendLine($"List.Add: {swListAdd.ElapsedMilliseconds} ms");
-            sb.AppendLine($"");
-            sb.AppendLine($"Total connectors iterated: {connectorIterationCount}");
-            sb.AppendLine($"Connectors added: {pointsToAdd.Count}");
-            sb.AppendLine($"Exceptions caught: {exceptionCount}");
-
-            // sort originTimes by descending time
-            var sortedOriginTimes = originTimes.OrderByDescending(kvp => kvp.Value);
-            // Output the top 100 slowest origins and the top 100 fastest (and their times)
-            sb.AppendLine($"Top 100 slowest Get Origin times:");
-            foreach (var kvp in sortedOriginTimes.Take(100))
-            {
-                sb.AppendLine($"Element ID {kvp.Key}: {kvp.Value:F2} ms");
-            }
-            sb.AppendLine($"Top 100 fastest Get Origin times:");
-            foreach (var kvp in sortedOriginTimes.Reverse().Take(100))
-            {
-                sb.AppendLine($"Element ID {kvp.Key}: {kvp.Value:F2} ms");
-            }
-
-
-            TaskDialog.Show("Timing Breakdown", sb.ToString());
-
-            _debugtext.AppendLine($"Extracted {pointsToAdd.Count} connectors from {_mepElements.Length} MEP elements.");
-
-            Stopwatch swBuild = Stopwatch.StartNew();
-            foreach (var (point, data) in pointsToAdd)
-            {
-                tree.Add(point, data);
-            }
-            swBuild.Stop();
-
-            TaskDialog.Show("KD-Tree Build", $"Took {swBuild.ElapsedMilliseconds} ms to build kd-tree with {tree.Count} connectors");
-            _debugtext.AppendLine($"Kd-tree built with {tree.Count} connectors from {_mepElements.Length} MEP elements.");
-
-            return tree;
-        }
 
         private Dictionary<int, ValveCacheData> BuildValveConnectorCache(Dictionary<int, Element> valves)
         {
@@ -434,14 +244,14 @@ namespace ValveGetter.Core
                     // Skip self-references
                     if (refElemId != valveId)
                     {
-                        string service = GetServiceFromElement(refElem);
+                        string service = _getMepService(refElem);
                         if (!string.IsNullOrEmpty(service))
                         {
                             // Return immediately on first found connected service
                             return new ValveResult
                             {
                                 Service = service,
-                                Method = "connected",
+                                Method = ConnectionMethod.Connected,
                                 DistanceMm = 0.0,
                                 SourceElementId = refElemId,
                                 ValveConnectorLocation = FormatCoordinates(valveConnInfo.Origin),
@@ -485,13 +295,13 @@ namespace ValveGetter.Core
                         // Early exit if touching
                         if (distanceSq < _touchingDistSq)
                         {
-                            string service = GetServiceFromElement(_mepElements[mepConnInfo.ElementHash]);
+                            string service = _getMepService(_mepElements[mepConnInfo.ElementHash]);
                             if (!string.IsNullOrEmpty(service))
                             {
                                 return new ValveResult
                                 {
                                     Service = service,
-                                    Method = "proximity_connector",
+                                    Method = ConnectionMethod.Nearest,
                                     DistanceMm = Math.Sqrt(distanceSq) / MM_TO_FEET,
                                     SourceElementId = _mepElementIds[mepConnInfo.ElementHash],
                                     ValveConnectorLocation = FormatCoordinates(valveConnInfo.Origin),
@@ -511,13 +321,13 @@ namespace ValveGetter.Core
             // Only compute actual distance if within tolerance
             if (minDistanceSq < _proximityToleranceSq && bestMEPConnHash >= 0)
             {
-                string service = GetServiceFromElement(_mepElements[bestMEPConnHash]);
+                string service = _getMepService(_mepElements[bestMEPConnHash]);
                 if (!string.IsNullOrEmpty(service))
                 {
                     return new ValveResult
                     {
                         Service = service,
-                        Method = "proximity_connector",
+                        Method = ConnectionMethod.Nearest,
                         DistanceMm = Math.Sqrt(minDistanceSq) / MM_TO_FEET,
                         SourceElementId = _mepElementIds[bestMEPConnHash],
                         ValveConnectorLocation = FormatCoordinates(bestValveConn.Origin),
@@ -594,13 +404,13 @@ namespace ValveGetter.Core
                         // Slight innaccuracy at endpoints of pipe as volume carved out by radius will be > tolerance if radius > tolerance
                         if (radius > 0 && distanceSq < radius * radius)
                         {
-                            string service = GetServiceFromElement(mepElem);
+                            string service = _getMepService(mepElem);
                             if (!string.IsNullOrEmpty(service))
                             {
                                 return new ValveResult
                                 {
                                     Service = service,
-                                    Method = "proximity_centerline",
+                                    Method = ConnectionMethod.Intersecting,
                                     DistanceMm = Math.Sqrt(distanceSq) / MM_TO_FEET,
                                     SourceElementId = elemId,
                                     ValveConnectorLocation = FormatCoordinates(ValveConnOrigin),
@@ -624,13 +434,13 @@ namespace ValveGetter.Core
             // Fallback if nothing found within touching tolerance
             if (minDistanceSq < _proximityToleranceSq && bestMEPConnHash >= 0)
             {
-                string service = GetServiceFromElement(_mepElements[bestMEPConnHash]);
+                string service = _getMepService(_mepElements[bestMEPConnHash]);
                 if (!string.IsNullOrEmpty(service))
                 {
                     return new ValveResult
                     {
                         Service = service,
-                        Method = "proximity_centerline",
+                        Method = ConnectionMethod.Intersecting,
                         DistanceMm = Math.Sqrt(minDistanceSq) / MM_TO_FEET,
                         SourceElementId = _mepElementIds[bestMEPConnHash],
                         ValveConnectorLocation = FormatCoordinates(bestValveConn.Origin),
@@ -658,7 +468,7 @@ namespace ValveGetter.Core
                 {
                     ValveId = valveId,
                     ValveName = ValveName,
-                    Method = "no_connectors"
+                    Method = ConnectionMethod.NoConnectors
                 };
 
                 // Get valve connectors from cache
@@ -701,7 +511,7 @@ namespace ValveGetter.Core
                 // No MEP Service found 
                 else
                 {
-                    result.Method = "not_found";
+                    result.Method = ConnectionMethod.NotFound;
                     results.Add(result);
                 }
             }
@@ -960,8 +770,36 @@ namespace ValveGetter.Core
     }
 
 
-    internal class FabricationPropertyFactory
+    internal class FabPropertyFactory
     {
+
+        /// <summary>
+        /// Create a fast accessor for the requested parameter. Optimised for many repeated calls:
+        /// - If a fabrication property is known, returns a delegated that does a single type-check and direct property read.
+        /// - Otherwise precomputes best access strategy (BuiltInParameter / GUID / name) and returns a small hot delegate.
+        /// </summary>
+        internal static PropertyGetter FactoryHandler(string paramName, Element sampleElem)
+        {
+            if (string.IsNullOrEmpty(paramName))
+                return new PropertyGetter(false, _ => null);
+            if (!IsParamMappedToProperty(paramName))
+                return new PropertyGetter(false, _ => null);
+            if (!IsPropertyAccessible(sampleElem, paramName))
+                return new PropertyGetter(false, _ => null);
+
+            var fabAccessor = GetFabAccessor(paramName);
+            return new PropertyGetter(true, element =>
+            {
+                if (element is FabricationPart fabPart)
+                {
+                    return fabAccessor(fabPart);
+                }
+
+                // handle non-fab element here
+                return null;
+            });
+        }
+
         // Static map reused across calls to avoid re-allocating the dictionary each time.
         private static readonly Dictionary<string, Func<FabricationPart, string>> s_fabricationPropertyMap =
             new(StringComparer.OrdinalIgnoreCase)
@@ -974,42 +812,20 @@ namespace ValveGetter.Core
                 { "ServiceAbbreviation", fp => fp.ServiceAbbreviation }
             };
 
-        /// <summary>
-        /// Create a fast accessor for the requested parameter. Optimised for many repeated calls:
-        /// - If a fabrication property is known, returns a delegated that does a single type-check and direct property read.
-        /// - Otherwise precomputes best access strategy (BuiltInParameter / GUID / name) and returns a small hot delegate.
-        /// </summary>
-        internal static Func<FabricationPart, string> GetProperty(
-            Document doc,
-            ParameterFilter parameterFilter,
-            Element sampleElem)
+        internal readonly struct PropertyGetter(bool isValid, Func<Element, string> getter)
         {
-            string paramName = parameterFilter.ParameterName;
-
-            if (string.IsNullOrEmpty(paramName))
-                // Throw error message
-                return element => null;
-
-            // Check if parameter maps to known fabrication property
-            if (!s_fabricationPropertyMap.ContainsKey(parameterFilter.ParameterName))
-                return element => null;
-
-            if (s_fabricationPropertyMap.TryGetValue(paramName, out var fabAccessor))
-            {
-                // Dummy check to ensure that the fabpart has this property 
-                bool hasProperty = TryGetMepProperty(sampleElem, fabAccessor);
-                if (!hasProperty) return element => null;
-
-                return fabPart => fabAccessor(fabPart);
-            }
-            // Final catch all (should not reach here)
-            return element => null;
+            public bool IsValid { get; } = isValid;
+            public Func<Element, string> Getter { get; } = getter;
         }
 
-        private static bool TryGetMepProperty(
-            Element sampleElem,
-            Func<FabricationPart, string> fabAccessor)
+
+
+        private static bool IsParamMappedToProperty(string paramName) => s_fabricationPropertyMap.ContainsKey(paramName);
+        private static Func<FabricationPart, string> GetFabAccessor(string paramName) => s_fabricationPropertyMap[paramName];
+
+        private static bool IsPropertyAccessible(Element sampleElem, string paramName)
         {
+            var fabAccessor = GetFabAccessor(paramName);
             if (sampleElem is FabricationPart fabPart)
             {
                 try
@@ -1028,8 +844,6 @@ namespace ValveGetter.Core
         }
 
     }
-
-
 
 
 }

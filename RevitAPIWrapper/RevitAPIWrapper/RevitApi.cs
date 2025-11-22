@@ -7,7 +7,7 @@ using IRevitAPIWrapper;
 
 namespace RevitAPIWrapper
 {
-    public partial class RevitApi : IRevitApi
+    public static partial class RevitApi 
     {
     }
 }
