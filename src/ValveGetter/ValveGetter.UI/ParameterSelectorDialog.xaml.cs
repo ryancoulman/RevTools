@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Security.Cryptography;
 using System.Windows;
 using System.Windows.Controls;
@@ -160,7 +161,8 @@ namespace ValveGetter.UI
                 BuiltInCategory.OST_DuctCurves,
             });
 
-            // Add common service parameters first
+            // REMOVE THIS AND JUST CHECK IF BIP EXISTS IN THE LIST GIVEN FROM CategoryParameterResolver (and set iscommon to true)
+            // Acc all revit logic should be removed from this class anyway
             AddNewBipsToList(commonServiceParams, sampleFabPart, true);
 
             // Get sample FabricationPart to check available parameters
@@ -329,16 +331,16 @@ namespace ValveGetter.UI
             DialogResult = false;
             Close();
         }
-        private class ParameterItem
-        {
-            public long ParameterBipId { get; set; }
-            public string ParameterName { get; set; }
-            public string ParameterGUID { get; set; }
-            public bool IsCommon { get; set; }
-            public string Category { get; set; }
-            public bool IsProperty { get; set; } 
 
-        }
+    }
+    public class ParameterItem
+    {
+        public long ParameterBipId { get; set; }
+        public string ParameterName { get; set; }
+        public string ParameterGUID { get; set; }
+        public bool IsCommon { get; set; }
+        public string Category { get; set; }
+
     }
 
     public enum ParamSelectorMode
@@ -349,237 +351,209 @@ namespace ValveGetter.UI
 }
 
 
-namespace RevitPlugin.Parameters
+namespace ValveGetter.UI
 {
-    public class ParameterInfo
-    {
-        public string ParameterName { get; set; }
-        public long ParameterBipId { get; set; }
-        public string ParameterGUID { get; set; }
-        public bool IsCommon { get; set; }
-        public int CategoryCount { get; set; } // How many categories have this param
-
-        public ParameterInfo(string name, long bipId, string guid, bool isCommon, int catCount)
-        {
-            ParameterName = name;
-            ParameterBipId = bipId;
-            ParameterGUID = guid;
-            IsCommon = isCommon;
-            CategoryCount = catCount;
-        }
-    }
 
     public static class CategoryParameterResolver
     {
-        public static List<ParameterInfo> GetParametersForCategories(
+        public static List<ParameterItem> GetParametersForCategories(
             Document doc,
-            ICollection<BuiltInCategory> selectedCategories)
+            List<BuiltInCategory> selectedCategories)
         {
             if (selectedCategories == null || !selectedCategories.Any())
-                return new List<ParameterInfo>();
-
-            var categoryIds = selectedCategories
-                .Select(bic => new ElementId(bic))
-                .ToList();
+                return [];
 
             // Get common filterable parameters
-            var commonParams = GetCommonFilterableParameters(doc, categoryIds);
+            var commonParams = GetCommonFilterableParameters(doc, selectedCategories);
 
-            // Get all parameters across categories for non-common ones
-            var allParams = GetAllParametersAcrossCategories(doc, categoryIds);
-
-            // Merge results
-            var results = new Dictionary<string, ParameterInfo>();
-
-            // Add common params first
-            foreach (var param in commonParams)
+            List<ParameterItem> results = new(commonParams.Count);
+            foreach (var (name, bipId, guid) in commonParams)
             {
-                var key = GetParameterKey(param.bipId, param.guid);
-                if (!results.ContainsKey(key))
+                results.Add(new ParameterItem
                 {
-                    results[key] = new ParameterInfo(
-                        param.name,
-                        param.bipId,
-                        param.guid,
-                        true,
-                        categoryIds.Count
-                    );
-                }
-            }
-
-            // Add non-common params
-            foreach (var param in allParams)
-            {
-                var key = GetParameterKey(param.bipId, param.guid);
-                if (!results.ContainsKey(key))
-                {
-                    results[key] = new ParameterInfo(
-                        param.name,
-                        param.bipId,
-                        param.guid,
-                        false,
-                        param.categoryCount
-                    );
-                }
-            }
-
-            return results.Values
-                .OrderByDescending(p => p.IsCommon)
-                .ThenByDescending(p => p.CategoryCount)
-                .ThenBy(p => p.ParameterName)
-                .ToList();
-        }
-
-        private static List<(string name, long bipId, string guid)> GetCommonFilterableParameters(
-            Document doc,
-            List<ElementId> categoryIds)
-        {
-            var results = new List<(string, long, string)>();
-
-            try
-            {
-                var filterableParams = ParameterFilterUtilities
-                    .GetFilterableParametersInCommon(doc, categoryIds);
-
-                var parameterBindings = doc.ParameterBindings;
-
-                foreach (var paramId in filterableParams)
-                {
-
-                    // Case 1 — BuiltInParameter (no ParameterElement exists in the document)
-                    if (Enum.IsDefined(typeof(BuiltInParameter), paramId.IntegerValue))
-                    {
-                        var bip = (BuiltInParameter)paramId.IntegerValue;
-
-                        // Skip INVALID
-                        if (bip == BuiltInParameter.INVALID)
-                            continue;
-
-                        string name = LabelUtils.GetLabelFor(bip);
-                        results.Add((name, (long)bip, ""));
-                        continue;
-                    }
-
-                    // Case 2 — ParameterElement (Shared or Project parameter)
-                    if (doc.GetElement(paramId) is ParameterElement paramElem)
-                    {
-                        var def = paramElem.GetDefinition();
-
-                        var binding = parameterBindings.get_Item(def);
-                        if (binding != null && binding is TypeBinding) continue;
-
-                        string name = def?.Name;
-                        if (string.IsNullOrEmpty(name)) continue;
-
-                        // Shared parameter
-                        if (paramElem is SharedParameterElement sharedParemElem)
-                        {
-                            results.Add((name, 0, sharedParemElem.GuidValue.ToString()));
-                        }
-                        // Project parameter (no GUID)
-                        else
-                        {
-                            results.Add((name, 0, ""));
-                        }
-                    }
-                }
-            }
-            catch (Exception)
-            {
-                // Silently handle if method fails
+                    ParameterName = name,
+                    ParameterBipId = bipId,
+                    ParameterGUID = guid,
+                    IsCommon = false,
+                    Category = "Common Parameters",
+                });
             }
 
             return results;
         }
 
-        private static List<(string name, long bipId, string guid, int categoryCount)>
-            GetAllParametersAcrossCategories(Document doc, List<ElementId> categoryIds)
+        private static List<(string name, long bipId, string guid)> GetCommonFilterableParameters(
+            Document doc,
+            List<BuiltInCategory> bics)
         {
-            var parameterOccurrences = new Dictionary<string, (string name, long bipId, string guid, int count)>();
+            var results = new List<(string, long, string)>(); // name, bipId, guid
 
-            foreach (var categoryId in categoryIds)
+            var sampleElem = GetSampleELemOfCats(doc, bics);
+
+            var categoryIds = bics
+                .Select(bic => new ElementId(bic))
+                .ToList();
+
+            var filterableParams = ParameterFilterUtilities
+                .GetFilterableParametersInCommon(doc, categoryIds);
+
+            var parameterBindings = doc.ParameterBindings;
+
+
+            foreach (var paramId in filterableParams)
             {
-                var category = Category.GetCategory(doc, categoryId);
-                if (category == null) continue;
-
-                var paramSet = GetCategoryParameters(doc, category);
-
-                foreach (var param in paramSet)
+                try
                 {
-                    var key = GetParameterKey(param.bipId, param.guid);
+                    // Case 1 — BuiltInParameter (no ParameterElement exists in the document)
+                    if (Enum.IsDefined(typeof(BuiltInParameter), paramId.IntegerValue))
+                    {
+                        var bip = (BuiltInParameter)paramId.IntegerValue;
 
-                    if (parameterOccurrences.ContainsKey(key))
-                    {
-                        var existing = parameterOccurrences[key];
-                        parameterOccurrences[key] = (existing.name, existing.bipId, existing.guid, existing.count + 1);
+                        if (bip == BuiltInParameter.INVALID) continue;
+
+                        if (IsBuiltInTypeParameter(sampleElem, bip)) continue;
+
+                        string name = LabelUtils.GetLabelFor(bip);
+                        if (string.IsNullOrEmpty(name)) continue;
+
+                        results.Add((name, (long)bip, ""));
                     }
-                    else
+                    // Case 2 — ParameterElement (Shared or Project parameter)
+                    else if (doc.GetElement(paramId) is ParameterElement paramElem)
                     {
-                        parameterOccurrences[key] = (param.name, param.bipId, param.guid, 1);
+                        if (paramElem.GetDefinition() is not InternalDefinition def) continue;
+
+                        if (IsParamElemTypeParameter(parameterBindings, def)) continue;
+
+                        string name = def?.Name;
+                        if (string.IsNullOrEmpty(name)) continue;
+
+                        var guid = "";
+                        // Shared parameter else no GUID
+                        if (paramElem is SharedParameterElement sharedParemElem && sharedParemElem?.GuidValue is Guid guidValue)
+                            guid = guidValue.ToString();
+
+                        results.Add((name, 0, guid));
                     }
                 }
+                catch { } // silent catch
             }
 
-            return parameterOccurrences.Values
-                .Select(p => (p.name, p.bipId, p.guid, p.count))
-                .ToList();
+            return results;
         }
 
-        private static HashSet<(string name, long bipId, string guid)> GetCategoryParameters(
-            Document doc,
-            Category category)
+        private static Element GetSampleELemOfCats(Document doc, List<BuiltInCategory> bicList) 
         {
-            var parameters = new HashSet<(string, long, string)>();
-
-            // Get instance binding parameters
-            var bindingMap = doc.ParameterBindings;
-            var iterator = bindingMap.ForwardIterator();
-
-            while (iterator.MoveNext())
+            foreach (BuiltInCategory bic in bicList)
             {
-                if (iterator.Key is InternalDefinition definition && iterator.Current is ElementBinding binding)
+                Element sampleElem = new FilteredElementCollector(doc)
+                    .OfCategory(bic)
+                    .WhereElementIsNotElementType()
+                    .FirstElement();
+                if (sampleElem != null)
                 {
-                    if (binding.Categories.Contains(category))
-                    {
-                        var bipId = definition.BuiltInParameter != BuiltInParameter.INVALID
-                            ? (long)definition.BuiltInParameter
-                            : 0;
-
-                        //var guid = definition is SharedParameterElement sharedDef
-                        //    ? sharedDef.GuidValue.ToString()
-                        //    : "";
-
-                        //parameters.Add((definition.Name, bipId, guid));
-                    }
+                    return sampleElem;
                 }
             }
 
-            // Add built-in parameters for the category
+            return null;
+        }
+
+        private static bool IsBuiltInTypeParameter(Element elem, BuiltInParameter bip)
+        {
+            if (elem == null) return true;
+
+            return elem?.get_Parameter(bip) == null; // if type param then will not exist on instance
+        }
+        private static bool IsParamElemTypeParameter(BindingMap paramBindings, InternalDefinition def)
+        {
+            try
+            {
+                var binding = paramBindings.get_Item(def);
+                return binding == null || binding is TypeBinding;
+            }
+            catch
+            {
+                return true; // will skip on error
+            }
+        }
+
+        private static bool IsParamWritable(Element sampleElem, ValueTuple<string, long, string> paramInfo)
+        {
+            // expand paramInfo so paramInfo = (name, bipId, guid)
+            if (sampleElem == null) return true;
+            (string name, long bipId, string guid) = paramInfo;
+
+            try
+            {
+                if (bipId < -1L)
+                {
+                    var bip = (BuiltInParameter)bipId;
+                    var parameter = sampleElem.get_Parameter(bip);
+                    if (parameter == null) return false;
+                    return !parameter.IsReadOnly;
+                }
+                else if (!string.IsNullOrEmpty(guid))
+                {
+                    var param = sampleElem.get_Parameter(new Guid(guid));
+                    if (param == null) return false;
+                    return !param.IsReadOnly;
+                }
+                if (!string.IsNullOrEmpty(name))
+                {
+                    var param = sampleElem.LookupParameter(name);
+                    if (param == null) return false;
+                    return !param.IsReadOnly;
+                }
+                return false;
+
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+    }
+
+    public static class AllParametersFetcher
+    {
+        public static HashSet<string> GetAllParameterNames(Document doc)
+        {
+            var names = new HashSet<string>();
+
+            // 1. Built-in parameters
             foreach (BuiltInParameter bip in Enum.GetValues(typeof(BuiltInParameter)))
             {
                 if (bip == BuiltInParameter.INVALID) continue;
 
                 try
                 {
-                    var name = LabelUtils.GetLabelFor(bip);
-                    if (!string.IsNullOrEmpty(name))
-                    {
-                        parameters.Add((name, (long)bip, ""));
-                    }
+                    string name = LabelUtils.GetLabelFor(bip);
+                    if (!string.IsNullOrWhiteSpace(name))
+                        names.Add(name);
                 }
-                catch
-                {
-                    // Parameter not applicable to this category
-                }
+                catch { }
             }
 
-            return parameters;
+            // 2. Shared parameters + Project parameters
+            var collector = new FilteredElementCollector(doc)
+                .OfClass(typeof(ParameterElement));
+
+            foreach (ParameterElement pe in collector)
+            {
+                Definition def = pe.GetDefinition();
+                if (def == null) continue;
+
+                string name = def.Name;
+                if (!string.IsNullOrWhiteSpace(name))
+                    names.Add(name);
+            }
+
+            // sort alphabetically
+            return names;
         }
 
-        private static string GetParameterKey(long bipId, string guid)
-        {
-            return bipId != -1 ? $"BIP_{bipId}" : $"GUID_{guid}";
-        }
     }
 }
 
