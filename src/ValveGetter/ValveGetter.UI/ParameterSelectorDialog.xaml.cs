@@ -8,6 +8,9 @@ using System.Windows;
 using System.Windows.Controls;
 using ValveGetter.Settings;
 
+using static RevitAPIWrapper.Extensions.BuiltInEnumHandler;
+
+
 namespace ValveGetter.UI
 {
     public partial class ParameterSelectorDialog : Window
@@ -350,7 +353,6 @@ namespace ValveGetter.UI
     }
 }
 
-
 namespace ValveGetter.UI
 {
 
@@ -358,17 +360,20 @@ namespace ValveGetter.UI
     {
         public static List<ParameterItem> GetParametersForCategories(
             Document doc,
-            List<BuiltInCategory> selectedCategories)
+            List<long> selectedBipIds,
+            List<BuiltInParameter> typicalParams)
         {
-            if (selectedCategories == null || !selectedCategories.Any())
+            var selectedBics = GetBicsFromIds(selectedBipIds);
+            if (selectedBics == null || !selectedBics.Any())
                 return [];
 
             // Get common filterable parameters
-            var commonParams = GetCommonFilterableParameters(doc, selectedCategories);
+            var commonParams = GetCommonFilterableParameters(doc, selectedBics);
 
             List<ParameterItem> results = new(commonParams.Count);
             foreach (var (name, bipId, guid) in commonParams)
             {
+                bool isCommon = bipId != 0; // built-in params are common
                 results.Add(new ParameterItem
                 {
                     ParameterName = name,
@@ -382,9 +387,26 @@ namespace ValveGetter.UI
             return results;
         }
 
+        private static List<BuiltInCategory> GetBicsFromIds(List<long> bipIds)
+        {
+            var list = new List<BuiltInCategory>();
+            if (bipIds == null || !bipIds.Any()) return list;
+
+            foreach (var bipId in bipIds)
+            {
+                var bicNullable = GetBuiltInEnum<BuiltInCategory>(bipId);
+                if (bicNullable.HasValue)
+                {
+                    list.Add(bicNullable.Value);
+                }
+            }
+            return list;
+        }
+
         private static List<(string name, long bipId, string guid)> GetCommonFilterableParameters(
             Document doc,
-            List<BuiltInCategory> bics)
+            List<BuiltInCategory> bics,
+            bool IsOnlyWritableParams = false)
         {
             var results = new List<(string, long, string)>(); // name, bipId, guid
 
@@ -416,6 +438,8 @@ namespace ValveGetter.UI
                         string name = LabelUtils.GetLabelFor(bip);
                         if (string.IsNullOrEmpty(name)) continue;
 
+                        if (IsOnlyWritableParams && !IsParamWritable(sampleElem, name, bip, null)) continue;
+
                         results.Add((name, (long)bip, ""));
                     }
                     // Case 2 — ParameterElement (Shared or Project parameter)
@@ -428,12 +452,14 @@ namespace ValveGetter.UI
                         string name = def?.Name;
                         if (string.IsNullOrEmpty(name)) continue;
 
-                        var guid = "";
+                        Guid? guidNullable = null;
                         // Shared parameter else no GUID
                         if (paramElem is SharedParameterElement sharedParemElem && sharedParemElem?.GuidValue is Guid guidValue)
-                            guid = guidValue.ToString();
+                            guidNullable = guidValue;
 
-                        results.Add((name, 0, guid));
+                        if (IsOnlyWritableParams && !IsParamWritable(sampleElem, name, null, guidNullable)) continue;
+
+                        results.Add((name, 0, guidNullable.HasValue ? guidNullable.Value.ToString() : ""));
                     }
                 }
                 catch { } // silent catch
@@ -478,29 +504,30 @@ namespace ValveGetter.UI
             }
         }
 
-        private static bool IsParamWritable(Element sampleElem, ValueTuple<string, long, string> paramInfo)
+        private static bool IsParamWritable(Element sampleElem, string nameNullable, BuiltInParameter? bipNullable, Guid? guidNullable)
         {
             // expand paramInfo so paramInfo = (name, bipId, guid)
             if (sampleElem == null) return true;
-            (string name, long bipId, string guid) = paramInfo;
 
             try
             {
-                if (bipId < -1L)
+                if (bipNullable.HasValue)
                 {
-                    var bip = (BuiltInParameter)bipId;
+                    var bip = bipNullable.Value;
                     var parameter = sampleElem.get_Parameter(bip);
                     if (parameter == null) return false;
                     return !parameter.IsReadOnly;
                 }
-                else if (!string.IsNullOrEmpty(guid))
+                else if (guidNullable.HasValue)
                 {
-                    var param = sampleElem.get_Parameter(new Guid(guid));
+                    var guid = guidNullable.Value;
+                    var param = sampleElem.get_Parameter(guid);
                     if (param == null) return false;
                     return !param.IsReadOnly;
                 }
-                if (!string.IsNullOrEmpty(name))
+                if (!string.IsNullOrEmpty(nameNullable))
                 {
+                    var name = nameNullable; // for clarity
                     var param = sampleElem.LookupParameter(name);
                     if (param == null) return false;
                     return !param.IsReadOnly;

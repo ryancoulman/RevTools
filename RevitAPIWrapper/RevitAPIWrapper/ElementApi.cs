@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 using System.Linq;
 using System.Text;
-using IRevitAPIWrapper;
 using Autodesk.Revit.DB;
 
 namespace RevitAPIWrapper
