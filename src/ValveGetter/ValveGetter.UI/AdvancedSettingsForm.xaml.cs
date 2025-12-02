@@ -358,6 +358,8 @@ namespace ValveGetter.UI
             if (dialog.ShowDialog() == true && dialog.SelectedFilter != null)
             {
                 _settings.MEPCategoryFilters.Add(dialog.SelectedFilter);
+                // Reset MEP parmater if already set and warn user 
+
                 RefreshMEPCategoryList();
             }
         }
@@ -369,6 +371,20 @@ namespace ValveGetter.UI
             {
                 _settings.MEPCategoryFilters.Remove(filter);
                 RefreshMEPCategoryList();
+            }
+        }
+
+        private static void ResetParameterIfNeeded(ValveServiceSettings settings, ParameterDefinition paramDef)
+        {
+            if (settings.InputParameter != null &&
+                settings.InputParameter.ParameterName == paramDef.ParameterName)
+            {
+                settings.InputParameter = new ParameterDefinition();
+            }
+            if (settings.OutputParameter != null &&
+                settings.OutputParameter.ParameterName == paramDef.ParameterName)
+            {
+                settings.OutputParameter = new ParameterDefinition();
             }
         }
 
@@ -391,6 +407,23 @@ namespace ValveGetter.UI
             {
                 txtOutputParameter.Text = dialog.SelectedParameter.ParameterName;
                 _settings.OutputParameter = dialog.SelectedParameter;
+            }
+        }
+
+        // add message box checking listbox has items + disable button beofre cats added 
+        private static void GetSelectedCategoryBipIds(ListBox listBox, out List<ElementId> selectedIds)
+        {
+            selectedIds = new List<ElementId>();
+            foreach (ListBoxItem item in listBox.SelectedItems)
+            {
+                if (item.Tag is CategoryFilter filter)
+                {
+                    ElementId catId = new ElementId(filter.BuiltInCategory);
+                    if (!selectedIds.Contains(catId))
+                    {
+                        selectedIds.Add(catId);
+                    }
+                }
             }
         }
 

@@ -30,23 +30,10 @@ namespace ValveGetter.UI
                 ? "Select MEP Service Parameter (Input)"
                 : "Select Valve Parameter (Output)";
 
-            LoadParameters(mode);
-        }
-
-        private void LoadParameters(ParamSelectorMode mode)
-        {
-            _allParameters = new List<ParameterItem>();
-
+            // Load all parameters
             try
             {
-                if (mode == ParamSelectorMode.MepServiceInput)
-                {
-                    LoadMEPFabricationParameters();
-                }
-                else // Output
-                {
-                    LoadValveParameters();
-                }
+                _allParameters = CategoryParameterResolver.GetParametersForCategories(_doc, new List<long>());
             }
             catch (Exception ex)
             {
@@ -54,183 +41,6 @@ namespace ValveGetter.UI
             }
 
             RefreshParameterList();
-        }
-
-        private void AddNewBipsToList(List<BuiltInParameter> bipList, Element sampleElem, bool isCommon)
-        {
-
-            foreach (BuiltInParameter bip in bipList)
-            {
-                try
-                {
-                    // Get the Category object from the document settings using the BuiltInCategory enum
-                    Parameter parameter = sampleElem.get_Parameter(bip);
-
-                    if (parameter == null) continue;
-
-                    // Get the user-visible, localized name of the category
-                    _allParameters.Add(new ParameterItem
-                    {
-                        ParameterName = parameter.Definition.Name,
-                        ParameterBipId = (long)bip,
-                        ParameterGUID = "",
-                        IsCommon = isCommon,
-                        Category = "Common Parameters",
-                    });
-                }
-                catch { }
-            }
-        }
-
-        private Element GetSampleElementOfCategory(List<BuiltInCategory> bicList)
-        {
-            foreach (BuiltInCategory bic in bicList)
-            {
-                Element sampleElem = new FilteredElementCollector(_doc)
-                    .OfCategory(bic)
-                    .WhereElementIsNotElementType()
-                    .FirstElement();
-                if (sampleElem != null)
-                {
-                    return sampleElem;
-                }
-            }
-
-            MessageBox.Show("No sample element found for the specified categories.", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
-            return null;
-        }
-
-        private void AddInstanceParametersToList(Element sampleElem, List<BuiltInParameter> commonBips = null, bool allowOnlyWritableParams = true)
-        {
-            var factoryMethod = allowOnlyWritableParams ? (Func<Parameter, bool>)IsWritableTextParameter : IsReadableTextParameter;
-            // Get instance parameters
-            foreach (Parameter param in sampleElem.Parameters)
-            {
-                try
-                {
-                    if (!factoryMethod(param)) continue;
-                    var definition = param.Definition;
-                    if (definition is InternalDefinition internalDef)
-                    {
-                        var builtInParam = internalDef.BuiltInParameter;
-                        if (commonBips != null && commonBips.Contains(builtInParam)) continue;
-                        if (builtInParam != BuiltInParameter.INVALID)
-                        {
-                            _allParameters.Add(new ParameterItem
-                            {
-                                ParameterName = definition.Name,
-                                ParameterBipId = (long)builtInParam,
-                                ParameterGUID = "",
-                                IsCommon = false,
-                                Category = "Parameters",
-                            });
-                        }
-                        else if (param.IsShared)
-                        {
-                            // User-defined shared project parameter 
-                            _allParameters.Add(new ParameterItem
-                            {
-                                ParameterName = definition.Name,
-                                ParameterBipId = 0L,
-                                ParameterGUID = param?.GUID.ToString(),
-                                IsCommon = false,
-                                Category = "Parameters",
-                            });
-                        }
-                    }
-                }
-                catch 
-                {
-                    // Log and continue
-                }
-            }
-        }
-
-        private void LoadMEPFabricationParameters()
-        {
-            List<BuiltInParameter> commonServiceParams =
-            [
-                BuiltInParameter.FABRICATION_SERVICE_NAME,
-                BuiltInParameter.FABRICATION_SERVICE_ABBREVIATION,
-                BuiltInParameter.FABRICATION_SERVICE_PARAM,
-            ];
-
-            // Clean up and get the common service categories from other form 
-            var sampleFabPart = GetSampleElementOfCategory(new List<BuiltInCategory>
-            {
-                BuiltInCategory.OST_FabricationPipework,
-                BuiltInCategory.OST_FabricationDuctwork,
-                BuiltInCategory.OST_PipeCurves,
-                BuiltInCategory.OST_DuctCurves,
-            });
-
-            // REMOVE THIS AND JUST CHECK IF BIP EXISTS IN THE LIST GIVEN FROM CategoryParameterResolver (and set iscommon to true)
-            // Acc all revit logic should be removed from this class anyway
-            AddNewBipsToList(commonServiceParams, sampleFabPart, true);
-
-            // Get sample FabricationPart to check available parameters
-            AddInstanceParametersToList(sampleFabPart, commonServiceParams, false);
-        }
-
-        private void LoadValveParameters()
-        {
-
-            Element sampleValve = GetSampleElementOfCategory(new List<BuiltInCategory>
-            {
-                BuiltInCategory.OST_PipeAccessory,
-                BuiltInCategory.OST_MechanicalEquipment,
-                BuiltInCategory.OST_GenericModel,
-            });
-
-            // Get sample valve element to check available parameters
-            AddInstanceParametersToList(sampleValve, null, false);
-        }
-
-        private bool IsWritableTextParameter(Parameter param)
-        {
-            try
-            {
-                if (param.IsReadOnly)
-                    return false;
-
-                // Only string parameters
-                if (param.StorageType != StorageType.String)
-                    return false;
-
-                // Exclude system parameters that shouldn't be written to
-                if (param.Definition is InternalDefinition internalDef)
-                {
-                    // Allow built-in parameters that are commonly used
-                    var builtInParam = internalDef?.BuiltInParameter;
-                    if (builtInParam == BuiltInParameter.INVALID || builtInParam == null)
-                    {
-                        return false;
-                    }
-                }
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private bool IsReadableTextParameter(Parameter param)
-        {
-            try
-            {
-                // For input (reading), we don't care if it's read-only
-                // We just need string parameters
-                if (param.StorageType != StorageType.String)
-                    return false;
-
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
         }
 
         private void RefreshParameterList()
@@ -286,10 +96,7 @@ namespace ValveGetter.UI
             }
         }
 
-        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            RefreshParameterList();
-        }
+        private void TxtSearch_TextChanged(object sender, TextChangedEventArgs e) => RefreshParameterList();
 
         private void LstParameters_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
@@ -308,10 +115,7 @@ namespace ValveGetter.UI
             }
         }
 
-        private void BtnOk_Click(object sender, RoutedEventArgs e)
-        {
-            AcceptSelection();
-        }
+        private void BtnOk_Click(object sender, RoutedEventArgs e) => AcceptSelection();
 
         private void AcceptSelection()
         {
@@ -336,6 +140,7 @@ namespace ValveGetter.UI
         }
 
     }
+
     public class ParameterItem
     {
         public long ParameterBipId { get; set; }
@@ -358,10 +163,20 @@ namespace ValveGetter.UI
 
     public static class CategoryParameterResolver
     {
-        public static List<ParameterItem> GetParametersForCategories(
-            Document doc,
-            List<long> selectedBipIds,
-            List<BuiltInParameter> typicalParams)
+        private static readonly List<BuiltInParameter> TypicalMepServiceBics =
+        [
+            // Common Fab Service parameters
+            BuiltInParameter.FABRICATION_SERVICE_NAME,
+            BuiltInParameter.FABRICATION_SERVICE_ABBREVIATION,
+            BuiltInParameter.FABRICATION_SERVICE_PARAM,
+            // Common MEP parameters
+            BuiltInParameter.RBS_SYSTEM_NAME_PARAM,
+            BuiltInParameter.RBS_DUCT_PIPE_SYSTEM_ABBREVIATION_PARAM,
+            BuiltInParameter.RBS_SYSTEM_CLASSIFICATION_PARAM,
+            BuiltInParameter.RBS_PIPING_SYSTEM_TYPE_PARAM,
+        ];
+
+        public static List<ParameterItem> GetParametersForCategories(Document doc, List<long> selectedBipIds)
         {
             var selectedBics = GetBicsFromIds(selectedBipIds);
             if (selectedBics == null || !selectedBics.Any())
@@ -370,43 +185,27 @@ namespace ValveGetter.UI
             // Get common filterable parameters
             var commonParams = GetCommonFilterableParameters(doc, selectedBics);
 
+            var isTypicalParamFunc = IsTypicalParamFunc(ParamSelectorMode.MepServiceInput);
             List<ParameterItem> results = new(commonParams.Count);
             foreach (var (name, bipId, guid) in commonParams)
             {
-                bool isCommon = bipId != 0; // built-in params are common
+                bool isCommon = isTypicalParamFunc(bipId);
                 results.Add(new ParameterItem
                 {
                     ParameterName = name,
                     ParameterBipId = bipId,
                     ParameterGUID = guid,
-                    IsCommon = false,
-                    Category = "Common Parameters",
+                    IsCommon = isCommon,
+                    Category = isCommon ? "Typical Parmeters" : "Common Parameters",
                 });
             }
 
             return results;
         }
 
-        private static List<BuiltInCategory> GetBicsFromIds(List<long> bipIds)
-        {
-            var list = new List<BuiltInCategory>();
-            if (bipIds == null || !bipIds.Any()) return list;
-
-            foreach (var bipId in bipIds)
-            {
-                var bicNullable = GetBuiltInEnum<BuiltInCategory>(bipId);
-                if (bicNullable.HasValue)
-                {
-                    list.Add(bicNullable.Value);
-                }
-            }
-            return list;
-        }
 
         private static List<(string name, long bipId, string guid)> GetCommonFilterableParameters(
-            Document doc,
-            List<BuiltInCategory> bics,
-            bool IsOnlyWritableParams = false)
+            Document doc, List<BuiltInCategory> bics, bool IsOnlyWritableParams = false)
         {
             var results = new List<(string, long, string)>(); // name, bipId, guid
 
@@ -466,6 +265,18 @@ namespace ValveGetter.UI
             }
 
             return results;
+        }
+
+        private static Func<long, bool> IsTypicalParamFunc(ParamSelectorMode mode)
+        {
+            if (mode == ParamSelectorMode.MepServiceInput)
+            {
+                return bipId => bipId < 0 && TypicalMepServiceBics.Contains((BuiltInParameter)bipId);
+            }
+            else
+            {
+                return bipId => false; // No typical params for Valve output
+            }
         }
 
         private static Element GetSampleELemOfCats(Document doc, List<BuiltInCategory> bicList) 
@@ -540,6 +351,23 @@ namespace ValveGetter.UI
                 return false;
             }
         }
+
+        private static List<BuiltInCategory> GetBicsFromIds(List<long> bipIds)
+        {
+            var list = new List<BuiltInCategory>();
+            if (bipIds == null || !bipIds.Any()) return list;
+
+            foreach (var bipId in bipIds)
+            {
+                var bicNullable = GetBuiltInEnum<BuiltInCategory>(bipId);
+                if (bicNullable.HasValue)
+                {
+                    list.Add(bicNullable.Value);
+                }
+            }
+            return list;
+        }
+
 
     }
 
